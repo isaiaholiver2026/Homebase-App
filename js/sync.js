@@ -224,6 +224,14 @@
     }
   }
 
+  // After signing out: start this browser over with a blank dashboard (light/dark mode stays)
+  function clearThisBrowser() {
+    ['home-base-data', 'home-base-canvas', 'home-base-weather', 'home-base-quotes', 'home-base-scores', 'home-base-sessions', K.presync].forEach(lsDel);
+    meta.canvasTime = meta.canvasSent = ''; saveMeta();
+    apply(HB.withDefaults(null));
+    setTimeout(() => location.reload(), 900);   // so every widget redraws from scratch
+  }
+
   /* ---------- Settings → Sync and the footer ---------- */
   function ago(t) {
     if (!t) return '';
@@ -255,7 +263,10 @@
       <small>${problem ? esc(problem) : status === 'syncing' ? 'Syncing…' : meta.at ? 'Last synced ' + ago(meta.at) + '.' : ''}</small>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" type="button" id="syncNow">Sync now</button><button class="btn sec" type="button" id="syncOut">Sign out</button></div>`;
     $('#syncNow').onclick = () => sync('pull');
-    $('#syncOut').onclick = () => { if (confirm('Sign out of sync on this browser? Your dashboard stays here, it just stops syncing.')) { signOut(false); HB.toast('Signed out. This browser stopped syncing.'); } };
+    $('#syncOut').onclick = () => {
+      if (!confirm('Sign out on this browser?\n\nYour dashboard will be removed from this browser (it stays safe in your synced copy). Sign in again anytime to bring it back.')) return;
+      signOut(false); clearThisBrowser(); HB.toast('Signed out. Your dashboard was removed from this browser.');
+    };
   }
   async function onSignIn(e) {
     e.preventDefault();
