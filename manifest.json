@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Home Base",
   "version": "1.1.0",
-  "description": "Isaiah's personal dashboard as the Chrome New Tab page.",
+  "description": "A personal dashboard as the Chrome New Tab page.",
   "chrome_url_overrides": {
     "newtab": "index.html"
   },

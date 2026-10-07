@@ -1,5 +1,5 @@
 /* Saving and loading your data.
-   Everything is saved in this browser's storage. Turn on Settings → Sync (js/sync.js) to keep
+   Everything is saved in this browser's storage. Sign in with the account button, top right (js/sync.js), to keep
    every browser and device the same, or use Settings → Backup to move it by hand. */
 (function () {
   const KEY = 'home-base-data';

@@ -1,7 +1,7 @@
 /* Sync: keeps your dashboard the same on every browser and device where you sign in.
    Uses your free Firebase project ("home-base-4ace0") through Firebase's web APIs, so no
    outside scripts are needed (Chrome extensions don't allow them).
-   - Sign in under Settings → Sync with the email and password you made in Firebase.
+   - Sign in with the account button (top right, next to the gear) using the email and password you made in Firebase.
    - Your tasks, deadlines, launchpad, notes and settings are stored at users/<you>/data/main.
    - Canvas assignments load in the Chrome extension and are shared to your other devices
      through users/<you>/data/canvas.
@@ -143,7 +143,7 @@
   // Hold incoming changes only while you're in the middle of typing something
   const typing = () => {
     const a = document.activeElement;
-    if (!a || a.closest('#set-sync')) return false;
+    if (!a || a.closest('#acctPop')) return false;
     if (a.tagName === 'TEXTAREA') return true;
     return a.tagName === 'INPUT' && !/checkbox|radio|button|submit/.test(a.type) && a.value.trim() !== '';
   };
@@ -232,13 +232,23 @@
     setTimeout(() => location.reload(), 900);   // so every widget redraws from scratch
   }
 
-  /* ---------- Settings → Sync and the footer ---------- */
+  /* ---------- The sync pop-up and the footer ---------- */
   function ago(t) {
     if (!t) return '';
     const s = Math.round((Date.now() - t) / 1000);
     return s < 45 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} hr ago` : `${Math.round(s / 86400)} d ago`;
   }
+  function drawButton() {
+    const btn = $('#acctBtn'); if (!btn) return;
+    const who = (HB.settings().name || (session && session.email) || '').trim();
+    btn.classList.toggle('on', !!session);
+    btn.classList.toggle('warn', !!session && !!problem);
+    $('#acctInit').textContent = who ? who[0].toUpperCase() : '';
+    const label = !session ? 'Sign in to sync' : problem ? 'Sync paused' : `Signed in as ${session.email}`;
+    btn.title = label; btn.setAttribute('aria-label', label);
+  }
   function draw() {
+    drawButton();
     const box = $('#syncBox'), foot = $('#footSave');
     if (foot) foot.textContent = !session ? 'Saved in this browser'
       : problem ? 'Sync paused · saved in this browser'
@@ -265,7 +275,7 @@
     $('#syncNow').onclick = () => sync('pull');
     $('#syncOut').onclick = () => {
       if (!confirm('Sign out on this browser?\n\nYour dashboard will be removed from this browser (it stays safe in your synced copy). Sign in again anytime to bring it back.')) return;
-      signOut(false); clearThisBrowser(); HB.toast('Signed out. Your dashboard was removed from this browser.');
+      closePop(); signOut(false); clearThisBrowser(); HB.toast('Signed out. Your dashboard was removed from this browser.');
     };
   }
   async function onSignIn(e) {
@@ -277,12 +287,27 @@
       meta = { updateTime: '', base: '', dirty: false, at: 0, canvasTime: '', canvasSent: '' }; saveMeta();
       problem = ''; draw();
       await sync('first');
-      if (!problem) HB.toast('Sync is on');
+      if (!problem) { HB.toast('Sync is on'); setTimeout(closePop, 1200); }
       startPolling();
     } catch (err) {
       $('#syncMsg').textContent = authMessage(err.code);
       btn.disabled = false; btn.textContent = 'Sign in and sync';
     }
+  }
+
+  /* ---------- The pop-up under the account button ---------- */
+  const pop = $('#acctPop'), abtn = $('#acctBtn');
+  function openPop() {
+    draw(); pop.hidden = false; abtn.setAttribute('aria-expanded', 'true');
+    const f = pop.querySelector('#syncEmail') || pop.querySelector('#syncNow');
+    if (f) setTimeout(() => f.focus(), 30);
+  }
+  function closePop() { if (pop.hidden) return; pop.hidden = true; abtn.setAttribute('aria-expanded', 'false'); }
+  if (pop && abtn) {
+    abtn.addEventListener('click', e => { e.stopPropagation(); pop.hidden ? openPop() : closePop(); });
+    $('#acctClose').addEventListener('click', () => { closePop(); abtn.focus(); });
+    document.addEventListener('click', e => { if (!pop.hidden && !pop.contains(e.target) && !abtn.contains(e.target)) closePop(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { closePop(); abtn.focus(); } });
   }
 
   /* ---------- Staying up to date ---------- */
