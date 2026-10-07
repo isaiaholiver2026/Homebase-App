@@ -511,3 +511,54 @@ button.ttag:hover{color:var(--accent);border-color:var(--accent)}
 .acct-seg{display:flex}
 .acct-seg button{flex:1}
 .acct-link{align-self:flex-start;padding:2px 0!important;color:var(--accent)!important;font-size:12.5px}
+
+/* Schedules (js/schedule.js) */
+.cal .k-sched{--col:hsl(var(--h,265) 58% 55%)}
+.cal-legend .cal-sched{margin-left:auto;font-size:11.5px;padding:2px 6px}
+.sch-list{display:flex;flex-direction:column;gap:6px}
+.sch-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.sch-sw{display:flex;gap:3px;flex:none}
+.sch-sw i{width:6px;height:22px;border-radius:3px;background:hsl(var(--h) 58% 55%)}
+.sch-txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.sch-txt b{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sch-txt small{color:var(--muted);font-size:12px}
+.sch-show{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);flex:none}
+.sch-row .btn{padding:5px 10px;font-size:12.5px}
+.gallery.sd{width:min(640px,calc(100vw - 32px))}
+.sd-b{display:flex;flex-direction:column;gap:16px;overflow:auto;padding:16px 20px 18px}
+.sd-opt{font-weight:400;color:var(--muted)}
+.sd-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sd-row label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.sd-row .set-in{width:auto}
+.sd-row [data-f=title]{flex:1;min-width:160px}
+.sd-dates .set-in,.sd-off input[type=date]{min-width:0}
+.sd-items{display:flex;flex-direction:column;gap:10px}
+.sd-item{display:flex;flex-direction:column;gap:9px;padding:12px;border:1px solid var(--line);border-left:4px solid hsl(var(--h) 58% 55%);border-radius:12px;background:var(--surface-2)}
+.sd-days{display:flex;gap:4px;flex-wrap:wrap}
+.sd-days button{width:36px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font-size:12.5px;font-weight:600;transition:background .15s,color .15s,border-color .15s}
+.sd-days button[aria-pressed="true"]{background:hsl(var(--h) 58% 50%);border-color:transparent;color:#fff}
+.sd-where{flex:1;min-width:140px}
+.sd-colors{display:flex;gap:6px}
+.sd-colors button{width:20px;height:20px;border-radius:50%;border:2px solid var(--surface);background:hsl(var(--h) 58% 55%);box-shadow:0 0 0 1px var(--line);padding:0;transition:transform .12s}
+.sd-colors button:hover{transform:scale(1.12)}
+.sd-colors button[aria-pressed="true"]{box-shadow:0 0 0 2px hsl(var(--h) 58% 45%)}
+.sd-del{opacity:.7;font-size:18px}
+.sd-add{align-self:flex-start}
+.sd-offs{display:flex;flex-direction:column;gap:6px}
+.sd-off [data-of=label]{flex:1;min-width:140px}
+.sd-off span{font-size:13px;color:var(--muted)}
+.sd-err{color:var(--bad);font-size:12px}
+.sd-err:empty,.sd-msg:empty{display:none}
+.sd-msg{margin:0;color:var(--bad);font-size:13px}
+.sd-b .set-in.bad{border-color:var(--bad)}
+.sd-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;position:sticky;bottom:-18px;background:var(--surface);padding:10px 0 0;border-top:1px solid var(--line)}
+.sd-delete{color:var(--bad)}
+/* Calendar "Show:" toggles */
+.cal-legend{align-items:center;gap:6px}
+.cal-lbl{font-weight:600;color:var(--muted)}
+.cal-tog{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:3px 10px 3px 8px;font-size:11.5px;font-weight:500;max-width:180px;transition:background .15s,color .15s,border-color .15s,opacity .15s}
+.cal-tog span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-tog:hover{border-color:var(--accent)}
+.cal-tog.off{background:transparent;color:var(--muted);border-style:dashed}
+.cal-tog.off span{text-decoration:line-through}
+.cal-tog.off .cal-dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--col)}

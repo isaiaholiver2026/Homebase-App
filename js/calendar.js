@@ -1,38 +1,45 @@
-/* Calendar: a Month or Week view of your Coming up deadlines, Canvas assignments and
-   repeating tasks. Click a day to see everything on it, or to add a deadline to that day.
+/* Calendar: a Month or Week view of your Coming up deadlines, Canvas assignments,
+   repeating tasks and schedules (js/schedule.js). Click a day to see everything on it.
    Add it from Customize → Add widgets. Works best as a medium or large widget. */
 (function () {
   const { $, esc, localISO, parseD } = HB;
   const cfg = () => { const s = HB.settings(); if (!s.calendar) s.calendar = { view: 'month' }; return s.calendar; };
   const view = () => (cfg().view === 'week' ? 'week' : 'month');
+  // What's turned off with the toggles under the calendar (schedules use their own "hidden" flag,
+  // the same one as the Show checkbox in Settings → Schedules)
+  const off = k => !!(cfg().hide || {})[k];
   let sec = null, cursor = HB.today0(), selected = localISO();
   const DOW = [...Array(7)].map((_, i) => new Date(2026, 1, 1 + i).toLocaleDateString(undefined, { weekday: 'short' }));   // Sun…Sat
-  const KIND = { deadline: 'Deadline', canvas: 'Canvas', repeat: 'Repeating task' };
+  const KIND = { deadline: 'Deadline', canvas: 'Canvas', repeat: 'Repeating task', sched: '' };
 
   /* Everything on one day. Items without a time ("all day") come first, then by time. */
   function eventsOn(iso) {
     const out = [], day0 = parseD(iso).getTime();
-    HB.state.deadlines.forEach(x => {
+    if (!off('deadline')) HB.state.deadlines.forEach(x => {
       if (x.date !== iso) return;
       out.push({ kind: 'deadline', title: x.title, sub: x.tag || '', time: x.time ? HB.fmtTime(x.time) : '', allDay: !x.time, at: HB.dueAt(x) });
     });
-    (HB.canvasAll ? HB.canvasAll() : []).forEach(x => {
+    if (!off('canvas')) (HB.canvasAll ? HB.canvasAll() : []).forEach(x => {
       if (x.date !== iso) return;
       out.push({ kind: 'canvas', title: x.title, sub: x.course, code: x.code, time: x.time, allDay: !x.time, at: x.ts, url: x.url, done: x.done, hue: HB.courseHue(x.course) });
     });
+    // Schedules (classes, shifts…): weekly time blocks
+    (HB.scheduleOn ? HB.scheduleOn(iso) : []).forEach(x => {
+      const [h, m] = x.start.split(':').map(Number);
+      out.push({ kind: 'sched', title: x.title, sub: [x.end ? 'Until ' + HB.fmtTime(x.end) : '', x.where, x.schedule].filter(Boolean).join(' · '), time: HB.fmtTime(x.start), allDay: false, at: day0 + (h * 60 + m) * 60000, hue: x.hue });
+    });
     // Repeating tasks: today and later (they have no time, so they show as all-day)
-    if (iso >= localISO() && HB.repeatOccursOn) (HB.state.recurring || []).forEach(r => {
+    if (!off('repeat') && iso >= localISO() && HB.repeatOccursOn) (HB.state.recurring || []).forEach(r => {
       if (HB.repeatOccursOn(r, parseD(iso))) out.push({ kind: 'repeat', title: r.text, sub: HB.repeatText ? 'Repeats ' + HB.repeatText(r) : '', time: '', allDay: true, at: day0 });
     });
     return out.sort((a, b) => (b.allDay - a.allDay) || a.at - b.at);
   }
 
   const short = t => (t || '').replace(/:00(?=\s?[AP]M)/i, '').replace(/\s?([AP])M/i, (_, x) => x.toLowerCase());   // "11:59 PM" → "11:59p", "3:00 PM" → "3p"
-  const style = e => (e.kind === 'canvas' ? ` style="--h:${e.hue}"` : '');
+  const style = e => (e.kind === 'canvas' || e.kind === 'sched' ? ` style="--h:${e.hue}"` : '');
   const chip = e => `<span class="cal-chip k-${e.kind}${e.done ? ' done' : ''}"${style(e)}>${e.time ? `<b>${esc(short(e.time))}</b>` : ''}${esc(e.title)}</span>`;
   const dot = e => `<i class="cal-dot k-${e.kind}"${style(e)}></i>`;
   const longDate = iso => parseD(iso).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  const shortDate = iso => parseD(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
   function dayCell(d, inMonth) {
     const iso = localISO(d), evs = eventsOn(iso), today = iso === localISO(), sel = iso === selected;
@@ -83,7 +90,6 @@
     const v = view(), evs = eventsOn(selected);
     const body = $('#calBody'), keep = document.activeElement && body.contains(document.activeElement) ? document.activeElement : null;
     const keepDay = keep && keep.dataset.day;
-    if (keep && keep.closest('[data-caladd]')) return;   // don't redraw while you're typing a new deadline
     body.innerHTML = `
       <div class="cal-bar">
         <div class="cal-nav">
@@ -95,16 +101,20 @@
         <div class="seg" role="group" aria-label="Calendar view"><button type="button" data-calview="month" aria-pressed="${v === 'month'}">Month</button><button type="button" data-calview="week" aria-pressed="${v === 'week'}">Week</button></div>
       </div>
       ${v === 'month' ? monthHtml() : weekHtml()}
-      <div class="cal-detail">
-        ${v === 'month' ? `<h3>${esc(longDate(selected))}</h3>${evs.length ? `<ul class="cal-list">${evs.map(itemHtml).join('')}</ul>` : '<p class="cal-none">Nothing on this day.</p>'}` : ''}
-        <form class="cal-add" data-caladd>
-          <input name="title" placeholder="Add a deadline on ${esc(shortDate(selected))}" autocomplete="off" aria-label="New deadline on ${esc(longDate(selected))}" required>
-          <input name="time" type="time" aria-label="Time (optional)" title="Time (optional)">
-          <button class="btn" type="submit">Add</button>
-        </form>
-      </div>
-      <div class="cal-legend"><span><i class="cal-dot k-deadline"></i>Deadline</span>${HB.canvasAll && HB.canvasAll().length ? '<span><i class="cal-dot k-canvas" style="--h:350"></i>Canvas (color per class)</span>' : ''}<span><i class="cal-dot k-repeat"></i>Repeating task</span></div>`;
+      ${v === 'month' ? `<div class="cal-detail"><h3>${esc(longDate(selected))}</h3>${evs.length ? `<ul class="cal-list">${evs.map(itemHtml).join('')}</ul>` : '<p class="cal-none">Nothing on this day.</p>'}</div>` : ''}
+      ${legendHtml()}`;
     if (keepDay) { const b = body.querySelector(`[data-day="${keepDay}"]`); b && b.focus(); }
+  }
+
+  /* Toggles under the calendar: choose what shows (e.g. turn off school stuff for the weekend) */
+  function legendHtml() {
+    const t = (attr, on, dot, label, title) => `<button type="button" class="cal-tog${on ? '' : ' off'}" ${attr} aria-pressed="${on}" title="${esc(title)}">${dot}<span>${esc(label)}</span></button>`;
+    const parts = [t('data-calshow="deadline"', !off('deadline'), '<i class="cal-dot k-deadline"></i>', 'Deadlines', 'Show or hide your Coming up deadlines')];
+    if (HB.canvasAll && HB.canvasAll().length) parts.push(t('data-calshow="canvas"', !off('canvas'), '<i class="cal-dot k-canvas" style="--h:350"></i>', 'Canvas', 'Show or hide Canvas assignments'));
+    if ((HB.state.recurring || []).length) parts.push(t('data-calshow="repeat"', !off('repeat'), '<i class="cal-dot k-repeat"></i>', 'Repeating tasks', 'Show or hide repeating tasks'));
+    (HB.state.schedules || []).filter(x => (x.items || []).length).forEach(x => parts.push(
+      t(`data-calsched="${esc(x.id)}"`, !x.hidden, `<i class="cal-dot k-sched" style="--h:${(x.items[0] || {}).hue || 265}"></i>`, x.name, `Show or hide your "${x.name}" schedule`)));
+    return `<div class="cal-legend" role="group" aria-label="Show on calendar"><span class="cal-lbl">Show:</span>${parts.join('')}${HB.openSchedule ? '<button type="button" class="ghost cal-sched" data-schnew>+ Create schedule</button>' : ''}</div>`;
   }
 
   function move(step) {
@@ -124,7 +134,7 @@
 
   HB.registerWidget({
     id: 'calendar', name: 'Calendar', size: 'm',
-    desc: 'A month or week view of your deadlines, Canvas assignments and repeating tasks. Click a day to add to it.',
+    desc: 'A month or week view of your deadlines, Canvas assignments, repeating tasks and schedules. Click a day to see what is on it.',
     icon: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7.5 13.5h2M11 13.5h2M14.5 13.5h2M7.5 16.5h2M11 16.5h2"/>',
     render(section) {
       sec = section;
@@ -137,6 +147,14 @@
         else if (nav) move(+nav.dataset.calnav);
         else if (t.closest('[data-caltoday]')) { cursor = HB.today0(); selected = localISO(); draw(); }
         else if (vw) { cfg().view = vw.dataset.calview; HB.saveQuietly(); cursor = parseD(selected); draw(); }
+        else if (t.closest('[data-calshow]')) {
+          const k = t.closest('[data-calshow]').dataset.calshow, c = cfg();
+          c.hide = Object.assign({}, c.hide, { [k]: !off(k) }); HB.commit();
+        }
+        else if (t.closest('[data-calsched]')) {
+          const x = (HB.state.schedules || []).find(y => y.id === t.closest('[data-calsched]').dataset.calsched);
+          if (x) { x.hidden = !x.hidden; HB.commit(); }
+        }
       });
       // Arrow keys move between days
       sec.addEventListener('keydown', e => {
@@ -150,15 +168,6 @@
         if (view() === 'week' && localISO(weekStart(d)) !== localISO(weekStart(cursor))) cursor = d;
         draw();
         const nb = sec.querySelector(`[data-day="${selected}"]`); nb && nb.focus();
-      });
-      sec.addEventListener('submit', e => {
-        const f = e.target.closest('[data-caladd]'); if (!f) return;
-        e.preventDefault();
-        const title = f.title.value.trim(); if (!title) return;
-        HB.state.deadlines.push({ id: HB.uid(), title, date: selected, time: f.time.value || '', tag: '', notes: '' });
-        f.reset(); document.activeElement && document.activeElement.blur();
-        HB.commit();
-        HB.toast(`Added "${title}" to Coming up for ${shortDate(selected)}`);
       });
       draw();
     }
