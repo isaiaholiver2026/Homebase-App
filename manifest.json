@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Home Base",
+  "version": "1.1.0",
+  "description": "Isaiah's personal dashboard as the Chrome New Tab page.",
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "host_permissions": [
+    "https://*.instructure.com/*",
+    "https://docs.google.com/*",
+    "https://site.api.espn.com/*",
+    "https://api.open-meteo.com/*",
+    "https://geocoding-api.open-meteo.com/*",
+    "https://identitytoolkit.googleapis.com/*",
+    "https://securetoken.googleapis.com/*",
+    "https://firestore.googleapis.com/*"
+  ],
+  "icons": {
+    "16": "images/icon-16.png",
+    "32": "images/icon-32.png",
+    "48": "images/icon-48.png",
+    "128": "images/icon-128.png"
+  }
+}

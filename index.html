@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Home Base</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232B59C3'/%3E%3Cpath d='M8 16l8-7 8 7v8h-5v-5h-6v5H8z' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="js/boot.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="hello">
+      <h1 id="greet">Hello</h1>
+      <p id="summary">Loading your day…</p>
+    </div>
+    <div class="top-right">
+    <div class="top-btns">
+    <button class="icon-btn" id="customizeBtn" aria-label="Customize widgets" title="Customize widgets">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/></svg>
+    </button>
+    <button class="icon-btn" id="openSettings" aria-label="Open settings" title="Settings">
+      <svg class="gear" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <button class="theme-btn" id="themeBtn" aria-label="Switch to dark mode" title="Switch theme">
+      <svg class="sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
+    </button>
+    </div>
+    <div class="clock">
+      <div class="t" id="time">--:--</div>
+      <div class="d" id="date"></div>
+    </div>
+    </div>
+  </header>
+
+  <div class="customize-bar" id="customizeBar" hidden>
+    <div class="cb-text"><b>Customize your dashboard</b><span>Drag widgets to move them, pick a size, or remove the ones you don't use. Add widgets shows everything available.</span></div>
+    <div class="cb-hidden" id="hiddenWidgets"></div>
+    <div class="cb-actions"><button class="btn sec" id="resetLayout">Reset layout</button><button class="btn" id="doneCustomize">Done</button></div>
+  </div>
+
+  <!-- Widgets: order, size and visibility come from the Customize button (js/layout.js) -->
+  <div class="board" id="board">
+    <div class="widget" data-w="search">
+      <section class="search" aria-label="Search">
+        <div class="search-row">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="q" type="text" placeholder="Search the web, YouTube, or ask an AI…" autocomplete="off">
+          <kbd>/</kbd>
+        </div>
+        <div class="engines" id="engines"></div>
+      </section>
+    </div>
+    <div class="widget" data-w="launchpad">
+      <section style="display:flex;flex-direction:column;gap:10px" aria-label="Apps">
+        <div class="section-label">
+          <h2>Launchpad</h2>
+          <div class="lp-actions"><button class="ghost" id="addApp">+ Add</button><button class="ghost" id="editLinks">Edit</button></div>
+        </div>
+        <p class="edit-hint" id="editHint" hidden></p>
+        <input type="file" id="iconFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+        <div class="addpanel card" id="addPanel" hidden>
+          <div class="addpanel-h">
+            <div class="seg" role="tablist" aria-label="What to add" id="addSeg">
+              <button type="button" data-m="web" aria-pressed="true">Website</button>
+              <button type="button" data-m="file" aria-pressed="false">Google Drive file</button>
+            </div>
+            <button class="ghost" type="button" id="cancelAdd">Cancel</button>
+          </div>
+          <form class="addlink" id="addLinkForm" data-pane="web">
+            <input id="linkName" placeholder="Name (e.g. Canvas)" required>
+            <input id="linkUrl" placeholder="Web address (e.g. myschool.instructure.com)" required>
+            <button class="btn" type="submit">Add</button>
+          </form>
+          <form class="addlink" id="fileForm" data-pane="file" hidden>
+            <input id="fileName" placeholder="Name (e.g. Bio syllabus)" required>
+            <input id="fileUrl" placeholder="Paste the file's link from Google Drive (Share → Copy link)" required>
+            <button class="btn" type="submit">Add</button>
+          </form>
+        </div>
+        <div class="launch" id="launch"></div>
+      </section>
+    </div>
+    <div class="widget" data-w="today">
+      <section class="card" aria-label="Today">
+        <div class="card-h">
+          <h2>Today</h2>
+          <div class="card-h-r"><button class="ghost" id="repeatsBtn" hidden aria-expanded="false">Repeats</button><div class="progress" id="progress"></div></div>
+        </div>
+        <div class="repeats" id="repeatsPanel" hidden></div>
+        <form class="field" id="taskForm">
+          <input id="taskInput" placeholder='Add a task (try "Gym every Mon/Wed")' autocomplete="off">
+        </form>
+        <ul class="list" id="tasks"></ul>
+        <div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="ghost" id="clearDone" hidden>Clear completed</button></div>
+      </section>
+    </div>
+    <div class="widget" data-w="deadlines">
+      <section class="card" aria-label="Deadlines">
+        <div class="card-h"><h2>Coming up</h2><button class="ghost" id="toggleDl">+ Add</button></div>
+        <form class="dl-form" id="dlForm" hidden>
+          <div class="field"><input id="dlTitle" placeholder="What's due? (e.g. Bio lab report)" required></div>
+          <div class="field"><input id="dlTag" placeholder="Class or tag (optional)"></div>
+          <textarea class="dl-notes-in" id="dlNotes" rows="3" placeholder="Notes (optional): what you need to do. Start a line with - [ ] to make a checklist."></textarea>
+          <input id="dlDate" type="date" required aria-label="Due date" style="border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:8px 10px">
+          <input id="dlTime" type="time" aria-label="Time (optional)" title="Time (optional)" style="border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:8px 10px">
+          <button class="btn" type="submit" style="grid-column:1/-1">Add deadline</button>
+        </form>
+        <div class="list" id="deadlines"></div>
+      </section>
+    </div>
+    <div class="widget" data-w="weather">
+      <section class="card wx" id="wx" aria-label="Weather"></section>
+    </div>
+    <div class="widget" data-w="focus">
+      <section class="card" aria-label="Focus timer">
+        <div class="card-h"><h2>Focus</h2><span class="sessions" id="sessions"></span><span class="t-mini mono" id="tMini"></span></div>
+        <div class="timer">
+          <div class="seg" role="group" aria-label="Timer length" id="timerSeg">
+            <button data-min="25" data-kind="focus" aria-pressed="true">Focus 25</button>
+            <button data-min="50" data-kind="deep" aria-pressed="false">Deep 50</button>
+            <button data-min="5" data-kind="brk" data-brk="1" aria-pressed="false">Break 5</button>
+            <button data-kind="custom" aria-pressed="false" id="customBtn">Custom</button>
+          </div>
+          <form class="custom-time" id="customForm" hidden>
+            <input id="customMin" autocomplete="off" inputmode="numeric" placeholder="Minutes (e.g. 45 or 1:30)" aria-label="Custom timer length">
+            <button class="btn" type="submit">Set</button>
+            <button class="btn sec" type="button" id="customCancel">Cancel</button>
+          </form>
+          <small class="custom-err" id="customErr" hidden></small>
+          <div class="dial" id="dial">
+            <svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="44"/><circle class="bar" id="bar" cx="50" cy="50" r="44"/></svg>
+            <div class="read"><b id="tRead">25:00</b><small id="tState">Ready</small></div>
+          </div>
+          <div class="timer-ctl">
+            <button class="btn" id="tStart">Start</button>
+            <button class="btn sec" id="tReset">Reset</button>
+          </div>
+          <div class="fstats" aria-label="Focus stats">
+            <div class="fs-nums"><span><b class="mono" id="fsToday">0</b> min today</span><span><b class="mono" id="fsStreak">0</b>-day streak</span></div>
+            <div class="fs-week" id="fsWeek"></div>
+            <small class="fs-total" id="fsTotal"></small>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="widget" data-w="watchlist">
+      <section class="card" aria-label="Watchlist">
+        <div class="card-h"><h2>Watchlist</h2><div><button class="ghost" id="refreshQuotes" title="Refresh prices">Refresh</button><a class="ghost" id="editSheet" target="_blank" rel="noopener" href="#">Edit list</a></div></div>
+        <div class="list" id="ticks"></div>
+        <p class="hint" id="quoteNote"></p>
+      </section>
+    </div>
+    <div class="widget" data-w="scores">
+      <section class="card scores" aria-label="Scores">
+        <div class="card-h"><h2>Scores</h2><div class="scores-h"><div class="seg" role="tablist" aria-label="League" id="scoreTabs"></div><button class="ghost" id="refreshScores" title="Refresh scores">Refresh</button></div></div>
+        <p class="score-ctx" id="scoreCtx" hidden></p>
+        <div class="games" id="scoreList"></div>
+        <p class="hint" id="scoreNote"></p>
+      </section>
+    </div>
+    <div class="widget" data-w="notes">
+      <section class="card" aria-label="Notes">
+        <div class="card-h"><h2>Scratchpad</h2><span class="sessions" id="noteState"></span></div>
+        <textarea id="notes" placeholder="Jot anything down. It saves as you type."></textarea>
+      </section>
+    </div>
+    <div class="widget" data-w="ask">
+      <section class="card ask" aria-label="Ask AI" id="askCard">
+        <div class="card-h"><h2>Ask AI</h2></div>
+        <textarea id="askInput" placeholder="Explain a concept, draft an email, plan your week…"></textarea>
+        <div class="ctl">
+          <label style="font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center"><input type="checkbox" id="askCtx"> Include my tasks and deadlines</label>
+          <div style="display:flex;gap:8px"><a class="btn sec" id="askGpt" target="_blank" rel="noopener" href="https://chatgpt.com/">Ask ChatGPT</a><a class="btn" id="askClaude" target="_blank" rel="noopener" href="https://claude.ai/new">Ask Claude</a></div>
+        </div>
+        <p class="hint">Opens your question in a new tab.</p>
+      </section>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" aria-label="Settings" aria-hidden="true" inert>
+    <div class="drawer-h"><h2>Settings</h2><div style="display:flex;align-items:center;gap:10px"><span class="saved-note" id="savedNote">Saved</span><button class="icon-btn" id="closeSettings" aria-label="Close settings" style="box-shadow:none;width:34px;height:34px">&times;</button></div></div>
+    <div class="drawer-b">
+      <section class="set-sec" id="set-profile">
+        <h3>Profile</h3>
+        <div class="set-row"><label for="setName">Your name</label><input class="set-in" id="setName" autocomplete="off" placeholder="Used in your greeting"></div>
+        <div class="set-row"><label for="setAbout">About you</label><textarea class="set-in" id="setAbout" rows="3" placeholder="Interests, goals, anything useful… Added to questions you send from Ask AI."></textarea></div>
+      </section>
+      <section class="set-sec" id="set-weather">
+        <h3>Weather</h3>
+        <div class="set-row"><span class="lbl">Location</span>
+          <div class="loc-current" id="locCurrent"></div>
+          <form class="field" id="locForm"><input class="set-in" id="locInput" placeholder="City or ZIP code" autocomplete="off"><button class="btn" type="submit">Search</button></form>
+          <div class="loc-results" id="locResults"></div>
+        </div>
+        <div class="set-row"><span class="lbl">Units</span>
+          <div class="seg" role="group" aria-label="Temperature units" id="unitSeg"><button data-u="fahrenheit" aria-pressed="true">°F</button><button data-u="celsius" aria-pressed="false">°C</button></div>
+        </div>
+      </section>
+      <section class="set-sec" id="set-stocks">
+        <h3>Stocks</h3>
+        <div class="set-row"><span class="lbl">Watchlist sheet</span>
+          <small>Your tickers and prices come from the Google Sheet "Home Base – Watchlist (standalone)". To add a ticker, type it into column A of any empty row. The sheet needs Share → General access set to "Anyone with the link" (Viewer).</small>
+          <a class="btn sec" id="openSheet" target="_blank" rel="noopener" href="#" style="align-self:flex-start;text-decoration:none">Open the sheet</a>
+        </div>
+        <div class="set-row"><label for="setCsv">Published CSV link (optional backup)</label>
+          <input class="set-in" id="setCsv" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv">
+          <small id="csvNote"></small>
+          <details class="howto"><summary>How to get this link (one time)</summary>
+            <ol>
+              <li>Open the sheet and choose <b>File → Share → Publish to web</b>.</li>
+              <li>Pick the sheet tab, then change "Web page" to <b>Comma-separated values (.csv)</b>.</li>
+              <li>Click <b>Publish</b>, confirm, and copy the link it shows.</li>
+              <li>Paste it in the box above.</li>
+            </ol>
+            <small>Google updates published sheets about every 5 minutes. Anyone with that link can see your ticker list.</small>
+          </details>
+        </div>
+      </section>
+      <section class="set-sec" id="set-scores">
+        <h3>Scores</h3>
+        <div class="set-row"><span class="lbl">Sports to show</span>
+          <small>Each sport you turn on gets its own tab in the Scores widget, in the order you turn them on.</small>
+          <div class="sport-picks" role="group" aria-label="Sports to show" id="sportPicks"></div>
+          <small id="sportNote"></small>
+        </div>
+        <div class="set-row"><span class="lbl">Favorite teams</span>
+          <small>Favorites show first, get their own "My teams" tab, and always appear in college scores even when unranked.</small>
+          <div class="fav-list" id="favList"></div>
+          <div class="seg" role="group" aria-label="League to search" id="favLeague"></div>
+          <form class="field" id="favForm"><input class="set-in" id="favQ" placeholder="Search teams, e.g. Iowa" autocomplete="off"><button class="btn" type="submit">Search</button></form>
+          <div class="loc-results" id="favResults"></div>
+        </div>
+      </section>
+      <section class="set-sec" id="set-canvas">
+        <h3>Canvas</h3>
+        <div class="set-row"><label for="setCanvas">Calendar feed link</label>
+          <input class="set-in" id="setCanvas" autocomplete="off" spellcheck="false" placeholder="https://uiowa.instructure.com/feeds/calendars/…">
+          <small id="cvStatus"></small>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" id="cvTest" type="button">Check connection</button><button class="btn sec" id="cvClear" type="button">Disconnect</button></div>
+          <details class="howto"><summary>Where to find this link</summary>
+            <ol>
+              <li>In Canvas, open <b>Calendar</b> from the left sidebar.</li>
+              <li>At the bottom right, click <b>Calendar Feed</b>.</li>
+              <li>Copy the link it shows and paste it above.</li>
+            </ol>
+            <small>Anyone with this link can see your Canvas calendar, so keep it private. Home Base only keeps it in this browser (and in backups you download).</small>
+          </details>
+        </div>
+        <div class="set-row"><span class="lbl">Show assignments in</span>
+          <div class="seg" role="group" aria-label="Where Canvas assignments show" id="cvShow"><button data-s="widget" aria-pressed="true">Canvas widget</button><button data-s="comingup" aria-pressed="false">Coming up</button><button data-s="both" aria-pressed="false">Both</button></div>
+          <small>Coming up shows the next two weeks of assignments next to your own deadlines. The Canvas widget shows the next 30 days, grouped by day.</small>
+        </div>
+      </section>
+      <section class="set-sec" id="set-timer">
+        <h3>Focus timer</h3>
+        <div class="set-inline">
+          <div class="set-row"><label for="setFocus">Focus (min)</label><input class="set-in" id="setFocus" type="number" min="1" max="180"></div>
+          <div class="set-row"><label for="setDeep">Deep (min)</label><input class="set-in" id="setDeep" type="number" min="1" max="240"></div>
+          <div class="set-row"><label for="setBreak">Break (min)</label><input class="set-in" id="setBreak" type="number" min="1" max="60"></div>
+        </div>
+      </section>
+      <section class="set-sec">
+        <h3>Appearance</h3>
+        <div class="set-row"><span class="lbl">Theme</span>
+          <div class="seg" role="group" aria-label="Theme" id="themeSeg"><button data-t="light" aria-pressed="false">Light</button><button data-t="dark" aria-pressed="false">Dark</button><button data-t="system" aria-pressed="false">Match device</button></div>
+        </div>
+        <div class="set-row"><span class="lbl">Widgets</span>
+          <small>Choose which widgets are on your dashboard. To move or resize them, use the Customize button (four squares, top right).</small>
+          <button class="btn sec" id="openGallery" type="button" style="align-self:flex-start">Choose widgets</button>
+        </div>
+        <div class="set-row"><span class="lbl">Widget layout</span>
+          <div class="seg" role="group" aria-label="Widget layout" id="boardSeg"><button data-b="packed" aria-pressed="true">Packed</button><button data-b="rows" aria-pressed="false">Neat rows</button></div>
+          <small>Packed fits widgets together with no empty space. Neat rows lines them up so each row is the same height.</small>
+        </div>
+      </section>
+      <section class="set-sec" id="set-sync">
+        <h3>Sync</h3>
+        <div class="set-row" id="syncBox"></div>
+      </section>
+      <section class="set-sec" id="set-backup">
+        <h3>Backup</h3>
+        <div class="set-row">
+          <small>Download a backup now and then to keep a copy of your dashboard, even with Sync on.</small>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" id="exportBtn">Download backup</button><button class="btn sec" id="importBtn">Load a backup</button></div>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+          <small id="lastBackup"></small>
+          <small id="backupNote"></small>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <footer class="foot">
+    <span id="footSave">Saved in this browser</span>
+    <span>Press <kbd>/</kbd> to search</span>
+  </footer>
+</div>
+
+<!-- Order matters: helpers and data first, app.js last. -->
+<script src="js/util.js"></script>
+<script src="js/defaults.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/launchpad.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/stocks.js"></script>
+<script src="js/sports.js"></script>
+<script src="js/timer.js"></script>
+<script src="js/notes.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/gallery.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
