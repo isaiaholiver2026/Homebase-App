@@ -17,6 +17,8 @@
   };
   const AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + FB.apiKey;
   const TOKEN_URL = 'https://securetoken.googleapis.com/v1/token?key=' + FB.apiKey;
+  const SIGNUP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + FB.apiKey;
+  const RESET_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=' + FB.apiKey;
   const DOCS = `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
 
   const DATA_KEY = 'home-base-data';
@@ -50,14 +52,18 @@
 
   /* ---------- Firebase sign-in ---------- */
   const AUTH_ERRORS = {
-    INVALID_LOGIN_CREDENTIALS: "That email and password don't match the login you made in Firebase.",
-    INVALID_PASSWORD: "That email and password don't match the login you made in Firebase.",
-    EMAIL_NOT_FOUND: "That email and password don't match the login you made in Firebase.",
+    INVALID_LOGIN_CREDENTIALS: "That email and password don't match an account. Check them, or create an account.",
+    INVALID_PASSWORD: "That email and password don't match an account. Check them, or create an account.",
+    EMAIL_NOT_FOUND: "That email and password don't match an account. Check them, or create an account.",
     INVALID_EMAIL: 'Check the email address and try again.',
     MISSING_PASSWORD: 'Enter your password.',
     USER_DISABLED: 'This login has been turned off in Firebase.',
     OPERATION_NOT_ALLOWED: 'Email sign-in is turned off. In Firebase, open Authentication → Sign-in method and enable Email/Password.',
-    TOO_MANY_ATTEMPTS_TRY_LATER: 'Too many tries. Wait a few minutes, then sign in again.'
+    TOO_MANY_ATTEMPTS_TRY_LATER: 'Too many tries. Wait a few minutes, then try again.',
+    EMAIL_EXISTS: 'There\'s already an account with that email. Sign in instead.',
+    WEAK_PASSWORD: 'Use a password with at least 6 characters.',
+    ADMIN_ONLY_OPERATION: 'New accounts are turned off for this dashboard. In Firebase, open Authentication → Settings → User actions and turn on "Enable create (sign-up)".',
+    MISSING_EMAIL: 'Enter your email.'
   };
   const authMessage = code => AUTH_ERRORS[String(code || '').split(' ')[0]] || "Couldn't sign in. Check your internet connection and try again.";
 
@@ -69,8 +75,8 @@
     if (!r.ok) throw Object.assign(new Error('auth'), { code: (j.error && j.error.message) || 'HTTP_' + r.status, status: r.status });
     return j;
   }
-  async function signIn(email, password) {
-    const j = await postJson(AUTH_URL, { email, password, returnSecureToken: true });
+  async function signIn(email, password, create) {
+    const j = await postJson(create ? SIGNUP_URL : AUTH_URL, { email, password, returnSecureToken: true });
     session = { uid: j.localId, email: j.email || email, idToken: j.idToken, refreshToken: j.refreshToken, exp: Date.now() + (+j.expiresIn || 3600) * 1000 };
     lsSet(K.session, session);
   }
@@ -244,7 +250,7 @@
     btn.classList.toggle('on', !!session);
     btn.classList.toggle('warn', !!session && !!problem);
     $('#acctInit').textContent = who ? who[0].toUpperCase() : '';
-    const label = !session ? 'Sign in to sync' : problem ? 'Sync paused' : `Signed in as ${session.email}`;
+    const label = !session ? 'Sign in or create an account' : problem ? 'Sync paused' : `Signed in as ${session.email}`;
     btn.title = label; btn.setAttribute('aria-label', label);
   }
   function draw() {
@@ -255,20 +261,15 @@
       : status === 'syncing' ? 'Syncing…'
       : meta.at ? `Synced ${ago(meta.at)}` : 'Sync on';
     if (!box) return;
+    const title = $('#acctTitle');
     if (!session) {
-      if (!box.querySelector('#syncForm')) {
-        box.innerHTML = `<small>Sign in to keep this dashboard the same on every browser and device where you sign in. Use the email and password you made in Firebase.</small>
-          <form class="field" id="syncForm" style="flex-direction:column;align-items:stretch;gap:8px">
-            <input class="set-in" id="syncEmail" type="email" autocomplete="username" placeholder="Email" required>
-            <input class="set-in" id="syncPass" type="password" autocomplete="current-password" placeholder="Password" required>
-            <button class="btn" type="submit">Sign in and sync</button>
-          </form>
-          <small id="syncMsg"></small>`;
-        $('#syncForm').addEventListener('submit', onSignIn);
-      }
+      if (title) title.textContent = authMode === 'create' ? 'Create account' : authMode === 'reset' ? 'Reset password' : 'Sign in';
+      if (box.dataset.mode !== authMode) drawAuthForm(box);
       $('#syncMsg').textContent = problem;
       return;
     }
+    if (title) title.textContent = 'Your account';
+    box.dataset.mode = '';
     box.innerHTML = `<small>Signed in as <b>${esc(session.email)}</b>. Your tasks, deadlines, launchpad, notes and settings sync to every device where you sign in${HB.isExt ? ', and this browser shares your Canvas assignments with them' : ''}.</small>
       <small>${problem ? esc(problem) : status === 'syncing' ? 'Syncing…' : meta.at ? 'Last synced ' + ago(meta.at) + '.' : ''}</small>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" type="button" id="syncNow">Sync now</button><button class="btn sec" type="button" id="syncOut">Sign out</button></div>`;
@@ -278,20 +279,54 @@
       closePop(); signOut(false); clearThisBrowser(); HB.toast('Signed out. Your dashboard was removed from this browser.');
     };
   }
+  let authMode = 'signin';   // 'signin' | 'create' | 'reset'
+  function drawAuthForm(box) {
+    box.dataset.mode = authMode;
+    const email = ($('#syncEmail') && $('#syncEmail').value) || '';
+    const tabs = authMode === 'reset' ? '' : `<div class="seg acct-seg" role="tablist" aria-label="Sign in or create an account">
+        <button type="button" role="tab" data-m="signin" aria-pressed="${authMode === 'signin'}">Sign in</button>
+        <button type="button" role="tab" data-m="create" aria-pressed="${authMode === 'create'}">Create account</button></div>`;
+    const intro = authMode === 'create' ? 'Make a free account so your dashboard is saved and stays the same on every browser and device where you sign in.'
+      : authMode === 'reset' ? 'Enter your email and we\'ll send you a link to choose a new password.'
+      : 'Sign in to keep your dashboard the same on every browser and device where you sign in.';
+    box.innerHTML = `${tabs}<small>${intro}</small>
+      <form class="field" id="syncForm" style="flex-direction:column;align-items:stretch;gap:8px">
+        <input class="set-in" id="syncEmail" type="email" autocomplete="${authMode === 'create' ? 'email' : 'username'}" placeholder="Email" required value="${esc(email)}">
+        ${authMode === 'reset' ? '' : `<input class="set-in" id="syncPass" type="password" autocomplete="${authMode === 'create' ? 'new-password' : 'current-password'}" placeholder="${authMode === 'create' ? 'Password (at least 6 characters)' : 'Password'}" required>`}
+        ${authMode === 'create' ? '<input class="set-in" id="syncPass2" type="password" autocomplete="new-password" placeholder="Confirm password" required>' : ''}
+        <button class="btn" type="submit">${authMode === 'create' ? 'Create account' : authMode === 'reset' ? 'Send reset link' : 'Sign in'}</button>
+      </form>
+      <small id="syncMsg"></small>
+      ${authMode === 'signin' ? '<button type="button" class="ghost acct-link" data-m="reset">Forgot password?</button>' : authMode === 'reset' ? '<button type="button" class="ghost acct-link" data-m="signin">Back to sign in</button>' : ''}`;
+    box.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { authMode = b.dataset.m; problem = ''; drawAuthForm(box); draw(); const f = $('#syncEmail'); if (f) f.focus(); });
+    $('#syncForm').addEventListener('submit', authMode === 'reset' ? onReset : onSignIn);
+  }
+  async function onReset(e) {
+    e.preventDefault();
+    const email = $('#syncEmail').value.trim(), btn = e.target.querySelector('button');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      await postJson(RESET_URL, { requestType: 'PASSWORD_RESET', email });
+      $('#syncMsg').textContent = 'If there\'s an account with that email, a reset link is on its way. Check your inbox (and spam).';
+    } catch (err) { $('#syncMsg').textContent = authMessage(err.code); }
+    btn.disabled = false; btn.textContent = 'Send reset link';
+  }
   async function onSignIn(e) {
     e.preventDefault();
+    const create = authMode === 'create';
     const email = $('#syncEmail').value.trim(), pass = $('#syncPass').value, btn = e.target.querySelector('button');
-    btn.disabled = true; btn.textContent = 'Signing in…'; $('#syncMsg').textContent = '';
+    if (create && pass !== $('#syncPass2').value) { $('#syncMsg').textContent = 'The passwords don\'t match.'; return; }
+    btn.disabled = true; btn.textContent = create ? 'Creating account…' : 'Signing in…'; $('#syncMsg').textContent = '';
     try {
-      await signIn(email, pass);
+      await signIn(email, pass, create);
       meta = { updateTime: '', base: '', dirty: false, at: 0, canvasTime: '', canvasSent: '' }; saveMeta();
       problem = ''; draw();
       await sync('first');
-      if (!problem) { HB.toast('Sync is on'); setTimeout(closePop, 1200); }
+      if (!problem) { HB.toast(create ? 'Account created. Your dashboard is saved.' : 'Signed in. Sync is on.'); authMode = 'signin'; setTimeout(closePop, 1200); }
       startPolling();
     } catch (err) {
       $('#syncMsg').textContent = authMessage(err.code);
-      btn.disabled = false; btn.textContent = 'Sign in and sync';
+      btn.disabled = false; btn.textContent = create ? 'Create account' : 'Sign in';
     }
   }
 
@@ -306,7 +341,8 @@
   if (pop && abtn) {
     abtn.addEventListener('click', e => { e.stopPropagation(); pop.hidden ? openPop() : closePop(); });
     $('#acctClose').addEventListener('click', () => { closePop(); abtn.focus(); });
-    document.addEventListener('click', e => { if (!pop.hidden && !pop.contains(e.target) && !abtn.contains(e.target)) closePop(); });
+    // Close on clicks outside (a button that redrew itself inside the pop-up doesn't count)
+    document.addEventListener('click', e => { if (!pop.hidden && e.target.isConnected && !pop.contains(e.target) && !abtn.contains(e.target)) closePop(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { closePop(); abtn.focus(); } });
   }
 

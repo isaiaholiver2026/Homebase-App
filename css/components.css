@@ -508,3 +508,6 @@ button.ttag:hover{color:var(--accent);border-color:var(--accent)}
 #syncBox{display:flex;flex-direction:column;gap:10px}
 #syncBox small{color:var(--muted);font-size:12.5px;line-height:1.45}
 #syncBox .btn{justify-content:center}
+.acct-seg{display:flex}
+.acct-seg button{flex:1}
+.acct-link{align-self:flex-start;padding:2px 0!important;color:var(--accent)!important;font-size:12.5px}

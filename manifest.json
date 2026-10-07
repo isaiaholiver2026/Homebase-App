@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Home Base",
-  "version": "1.1.0",
-  "description": "A personal dashboard as the Chrome New Tab page.",
-  "chrome_url_overrides": {
-    "newtab": "index.html"
-  },
+  "version": "1.2.0",
+  "description": "A personal dashboard that opens as a pinned tab when Chrome starts.",
+  "permissions": [
+    "tabs"
+  ],
   "host_permissions": [
     "https://*.instructure.com/*",
     "https://docs.google.com/*",
@@ -16,6 +16,17 @@
     "https://securetoken.googleapis.com/*",
     "https://firestore.googleapis.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open Home Base",
+    "default_icon": {
+      "16": "images/icon-16.png",
+      "32": "images/icon-32.png",
+      "48": "images/icon-48.png"
+    }
+  },
   "icons": {
     "16": "images/icon-16.png",
     "32": "images/icon-32.png",

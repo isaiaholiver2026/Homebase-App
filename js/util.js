@@ -1,7 +1,7 @@
 /* Small helpers shared by every part of the dashboard. */
 window.HB = window.HB || {};
 
-// True when Home Base is running as the Chrome extension (your New Tab page) instead of a file.
+// True when Home Base is running as the Chrome extension (the pinned tab) instead of a file or the web.
 // The extension is allowed to read Canvas and Google directly.
 HB.isExt = location.protocol === 'chrome-extension:';
 

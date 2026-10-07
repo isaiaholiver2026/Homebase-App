@@ -67,7 +67,7 @@
   /* Loading */
   const ERRORS = {
     blocked: HB.isExt ? "Couldn't reach Canvas. Check your internet connection, then try again."
-      : location.protocol === 'file:' ? "Chrome won't let Home Base read Canvas when it's opened as a file. Open a new tab to use the Home Base extension, where Canvas works."
+      : location.protocol === 'file:' ? "Chrome won't let Home Base read Canvas when it's opened as a file. Use the Home Base extension (the pinned tab, or the house icon in the toolbar), where Canvas works."
       : 'Canvas only loads in the Home Base extension on your computer. Sign in with the account button (top right) on both to see your assignments here.',
     badlink: "Canvas didn't accept that link. Copy it again from Canvas → Calendar → Calendar Feed.",
     notics: "That link didn't return a calendar. Make sure it's the Calendar Feed link from Canvas.",
