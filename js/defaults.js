@@ -17,13 +17,12 @@ HB.DEFAULTS = {
   notes: '',
   canvasDone: {},   // Canvas assignments you've checked off (by Canvas id)
   settings: {
-    name: 'Isaiah',
+    name: '',          // no name until you add one in Settings → Profile (or Sync brings yours)
     about: '',
     unit: 'fahrenheit',
-    wx: { name: 'Iowa City, Iowa', lat: 41.661, lon: -91.53 },
+    wx: null,          // no city until you pick one in Settings → Weather (or Sync brings yours)
     timer: { focus: 25, deep: 50, brk: 5 },
-    // Your "Home Base – Watchlist (standalone)" Google Sheet
-    sheetUrl: 'https://docs.google.com/spreadsheets/d/15rI27kEifcARV2vhJF3HBEnKeFiURTX2lSQZ7cYeiCk/edit',
+    sheetUrl: '',      // no watchlist until you add your sheet in Settings → Stocks (or Sync brings yours)
     sheetCsvUrl: '',  // optional backup link (Settings → Stocks)
     sports: { favorites: [], leagues: ['nfl', 'cfb', 'nba', 'ncaab'] },  // favorite teams + sports with a tab, picked in Settings → Scores
     canvas: { feedUrl: '', show: 'widget' },   // Settings → Canvas: calendar feed link; show in 'widget', 'comingup' or 'both'
