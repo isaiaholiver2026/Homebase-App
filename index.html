@@ -294,6 +294,17 @@
           <div class="set-row"><label for="setBreak">Break (min)</label><input class="set-in" id="setBreak" type="number" min="1" max="60"></div>
         </div>
       </section>
+      <section class="set-sec" id="set-search">
+        <h3>Search</h3>
+        <div class="set-row"><span class="lbl">Search buttons</span>
+          <small>Turn on the places you search most. Each one gets a button under the search bar, in the order you turn them on.</small>
+          <div class="sport-picks" id="enginePicks" role="group" aria-label="Search buttons"></div>
+          <small id="engineNote"></small>
+        </div>
+        <div class="set-row"><label for="engineDefault">When you press Enter, search with</label>
+          <select class="set-in" id="engineDefault"></select>
+        </div>
+      </section>
       <section class="set-sec" id="set-appearance">
         <h3>Appearance</h3>
         <div class="set-row"><span class="lbl">Theme</span>
@@ -357,6 +368,7 @@
 <script src="js/calendar.js"></script>
 <script src="js/settings-nav.js"></script>
 <script src="js/backup.js"></script>
+<script src="js/search.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -704,3 +704,4 @@ details.adv > .set-row{border-top:0;padding-bottom:0}
 .w-gear.floating{position:absolute;top:10px;right:40px;z-index:2;margin:0;background:var(--surface);box-shadow:var(--shadow)}
 .customizing .w-gear{display:none}
 @media (hover:none){.w-gear{opacity:.7}}
+#engineNote:empty{display:none}

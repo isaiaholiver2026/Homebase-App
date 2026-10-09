@@ -15,6 +15,8 @@
       sub: () => st().name ? `Hi, ${st().name.split(/\s+/)[0]}` : 'Your name' },
     { id: 'appearance', label: 'Appearance', icon: I('<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>'), sec: 'set-appearance',
       sub: () => ({ light: 'Light', dark: 'Dark' }[HB.lsGet(HB.THEME_KEY)] || 'Match device') + ' · ' + (st().boardMode === 'rows' ? 'Neat rows' : 'Packed') },
+    { id: 'search', label: 'Search', icon: I('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'), sec: 'set-search',
+      sub: () => { const p = HB.searchPrimary && HB.searchPrimary(); return p ? `Enter: ${p.name}` : 'Search buttons'; } },
     { group: 'Widgets' },
     { id: 'weather', label: 'Weather', widget: 'weather', sec: 'set-weather',
       sub: () => st().wx ? `${st().wx.name.split(',')[0]} · °${st().unit === 'celsius' ? 'C' : 'F'}` : 'Set your city' },

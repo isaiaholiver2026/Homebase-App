@@ -34,24 +34,7 @@
   setInterval(tick, 15000);
   HB.onChange(tick);
 
-  /* Search bar */
-  const engines = [
-    { name: 'Google', url: q => `https://www.google.com/search?q=${q}`, home: 'https://www.google.com', primary: true },
-    { name: 'YouTube', url: q => `https://www.youtube.com/results?search_query=${q}`, home: 'https://www.youtube.com' },
-    { name: 'Claude', url: q => `https://claude.ai/new?q=${q}`, home: 'https://claude.ai/new' },
-    { name: 'ChatGPT', url: q => `https://chatgpt.com/?q=${q}`, home: 'https://chatgpt.com' },
-    { name: 'Stock quote', url: q => `https://finance.yahoo.com/quote/${q.toUpperCase()}`, home: 'https://finance.yahoo.com' }
-  ];
-  $('#engines').innerHTML = engines.map((e, i) => `<a class="engine${e.primary ? ' primary' : ''}" data-i="${i}" target="_blank" rel="noopener" href="${e.home}">${e.name}</a>`).join('');
-  function updEngines() {
-    const q = encodeURIComponent($('#q').value.trim());
-    $$('.engine').forEach(a => { const e = engines[a.dataset.i]; a.href = q ? e.url(q) : e.home; });
-  }
-  $('#q').addEventListener('input', updEngines);
-  $('#q').addEventListener('keydown', e => { if (e.key === 'Enter' && $('#q').value.trim()) { e.preventDefault(); $('.engine.primary').click(); } });
-  document.addEventListener('keydown', e => {
-    if (e.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); $('#q').focus(); }
-  });
+  /* Search bar: see js/search.js */
 
   /* First draw: every section listens for HB.commit() */
   HB.commit();
