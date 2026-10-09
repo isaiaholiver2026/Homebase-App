@@ -1,7 +1,7 @@
 /* Settings panel: profile, weather, stocks, focus timer, appearance and backup. */
 (function () {
   const { $, $$, esc } = HB;
-  let open = false, lastFocus = null, savedT, typeT;
+  let open = false, lastFocus = null, savedT, typeT, locEditing = false;
 
   function fill(all) {
     const st = HB.settings(), a = document.activeElement;
@@ -10,7 +10,9 @@
     set('#setFocus', st.timer.focus); set('#setDeep', st.timer.deep); set('#setBreak', st.timer.brk);
     set('#setCsv', st.sheetCsvUrl);
     $('#openSheet').href = st.sheetUrl || 'https://sheets.google.com';
-    $('#locCurrent').innerHTML = st.wx ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><b>${esc(st.wx.name)}</b>` : '<small>No location set yet.</small>';
+    $('#locCurrent').innerHTML = st.wx ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><b>${esc(st.wx.name)}</b><button type="button" class="ghost" data-locchange>${locEditing ? 'Cancel' : 'Change'}</button>` : '<small>No location set yet.</small>';
+    // With a location set, the search box only opens when you click Change
+    $('#locForm').hidden = !!st.wx && !locEditing; if ($('#locForm').hidden) $('#locResults').innerHTML = '';
     $$('#unitSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === st.unit));
     const theme = HB.lsGet(HB.THEME_KEY) || 'system';
     $$('#themeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === theme));
@@ -24,11 +26,8 @@
     const d = $('#drawer'), sc = $('#scrim');
     sc.hidden = false; d.removeAttribute('inert'); d.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(() => { sc.classList.add('on'); d.classList.add('on'); });
-    setTimeout(() => {
-      const target = section && document.getElementById('set-' + section);
-      if (target) { target.scrollIntoView({ block: 'start' }); const f = target.querySelector('input'); f && f.focus(); }
-      else $('#setName').focus();
-    }, 300);
+    // Which page to show is handled by js/settings-nav.js
+    setTimeout(() => { if (HB.settingsShow) HB.settingsShow(section); else $('#setName').focus(); }, 40);
   }
   function closeDrawer() {
     open = false; const d = $('#drawer'), sc = $('#scrim');
@@ -64,8 +63,14 @@
   $('#locResults').addEventListener('click', e => {
     const b = e.target.closest('button[data-i]'); if (!b) return;
     const p = $('#locResults')._list[+b.dataset.i];
+    locEditing = false;
     save({ wx: { name: p.name, lat: p.lat, lon: p.lon } });
     $('#locResults').innerHTML = ''; $('#locInput').value = ''; fill(false);
+  });
+  $('#locCurrent').addEventListener('click', e => {
+    if (!e.target.closest('[data-locchange]')) return;
+    locEditing = !locEditing; fill(false);
+    if (locEditing) $('#locInput').focus();
   });
   $$('#unitSeg button').forEach(b => b.onclick = () => { save({ unit: b.dataset.u }); fill(false); });
 

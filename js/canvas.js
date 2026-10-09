@@ -253,6 +253,9 @@
     else if (s.error) { note.textContent = ERRORS[s.error] || ERRORS.http; note.className = 'bad'; }
     else { note.textContent = `Connected · ${upcoming(30).length} coming up in the next 30 days · updated ${ago(s.at)}`; note.className = 'good'; }
     $('#cvClear').hidden = !url;
+    // Once connected, the long link is tucked behind "Change link"
+    const row = $('#cvLinkRow');
+    if (row) { const editing = inp.dataset.editing === '1' || document.activeElement === inp; inp.hidden = !!url && !editing; row.hidden = !url || editing; }
   }
   const drawAll = () => { drawWidget(); drawSettings(); };
   HB.onChange(drawAll);
@@ -269,6 +272,10 @@
       }, 700);
     });
     $('#cvTest').onclick = () => { const v = $('#setCanvas').value; if (cleanUrl(v) !== feed()) connect(v); else refresh(true); };
+    if ($('#cvChange')) {
+      $('#cvChange').onclick = () => { const inp = $('#setCanvas'); inp.dataset.editing = '1'; drawSettings(); inp.focus(); inp.select(); };
+      $('#setCanvas').addEventListener('blur', () => setTimeout(() => { $('#setCanvas').dataset.editing = ''; drawSettings(); }, 250));
+    }
     $('#cvClear').onclick = () => { cfg().feedUrl = ''; cache = null; HB.lsDel(CACHE); HB.commit(); HB.toast('Disconnected from Canvas'); };
     $$('#cvShow button').forEach(b => b.onclick = () => setShow(b.dataset.s));
   }

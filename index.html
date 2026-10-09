@@ -200,8 +200,12 @@
   <aside class="drawer" id="drawer" aria-label="Settings" aria-hidden="true" inert>
     <div class="drawer-h"><h2>Settings</h2><div style="display:flex;align-items:center;gap:10px"><span class="saved-note" id="savedNote">Saved</span><button class="icon-btn" id="closeSettings" aria-label="Close settings" style="box-shadow:none;width:34px;height:34px">&times;</button></div></div>
     <div class="drawer-b">
+      <!-- Settings pages: the menu on the left is built by js/settings-nav.js -->
+      <nav class="set-nav" id="setNav" aria-label="Settings sections"></nav>
+      <div class="set-pages" id="setPages">
+      <div class="set-page-h"><button type="button" class="set-back" id="setBack"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>Settings</button></div>
       <section class="set-sec" id="set-profile">
-        <h3>Profile</h3>
+        <h3>General</h3>
         <div class="set-row"><label for="setName">Your name</label><input class="set-in" id="setName" autocomplete="off" placeholder="Used in your greeting"></div>
         <div class="set-row"><label for="setAbout">About you</label><textarea class="set-in" id="setAbout" rows="3" placeholder="Interests, goals, anything useful… Added to questions you send from Ask AI."></textarea></div>
       </section>
@@ -217,11 +221,12 @@
         </div>
       </section>
       <section class="set-sec" id="set-stocks">
-        <h3>Stocks</h3>
+        <h3>Watchlist</h3>
         <div class="set-row"><span class="lbl">Watchlist sheet</span>
           <small>Your tickers and prices come from the Google Sheet "Home Base – Watchlist (standalone)". To add a ticker, type it into column A of any empty row. The sheet needs Share → General access set to "Anyone with the link" (Viewer).</small>
           <a class="btn sec" id="openSheet" target="_blank" rel="noopener" href="#" style="align-self:flex-start;text-decoration:none">Open the sheet</a>
         </div>
+        <details class="adv"><summary>Advanced</summary>
         <div class="set-row"><label for="setCsv">Published CSV link (optional backup)</label>
           <input class="set-in" id="setCsv" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv">
           <small id="csvNote"></small>
@@ -235,6 +240,7 @@
             <small>Google updates published sheets about every 5 minutes. Anyone with that link can see your ticker list.</small>
           </details>
         </div>
+        </details>
       </section>
       <section class="set-sec" id="set-scores">
         <h3>Scores</h3>
@@ -262,6 +268,7 @@
       <section class="set-sec" id="set-canvas">
         <h3>Canvas</h3>
         <div class="set-row"><label for="setCanvas">Calendar feed link</label>
+          <div class="cv-linkrow" id="cvLinkRow" hidden><span>Your Canvas calendar is connected.</span><button type="button" class="ghost" id="cvChange">Change link</button></div>
           <input class="set-in" id="setCanvas" autocomplete="off" spellcheck="false" placeholder="https://uiowa.instructure.com/feeds/calendars/…">
           <small id="cvStatus"></small>
           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" id="cvTest" type="button">Check connection</button><button class="btn sec" id="cvClear" type="button">Disconnect</button></div>
@@ -287,7 +294,7 @@
           <div class="set-row"><label for="setBreak">Break (min)</label><input class="set-in" id="setBreak" type="number" min="1" max="60"></div>
         </div>
       </section>
-      <section class="set-sec">
+      <section class="set-sec" id="set-appearance">
         <h3>Appearance</h3>
         <div class="set-row"><span class="lbl">Theme</span>
           <div class="seg" role="group" aria-label="Theme" id="themeSeg"><button data-t="light" aria-pressed="false">Light</button><button data-t="dark" aria-pressed="false">Dark</button><button data-t="system" aria-pressed="false">Match device</button></div>
@@ -311,6 +318,14 @@
           <small id="backupNote"></small>
         </div>
       </section>
+      <section class="set-sec" id="set-account">
+        <h3>Account &amp; sync</h3>
+        <div class="set-row">
+          <small id="setAcctStatus"></small>
+          <button class="btn sec" type="button" id="setAcctOpen" style="align-self:flex-start">Open account</button>
+        </div>
+      </section>
+      </div>
     </div>
   </aside>
 
@@ -337,8 +352,10 @@
 <script src="js/gallery.js"></script>
 <script src="js/canvas.js"></script>
 <script src="js/quote.js"></script>
+<script src="js/counter.js"></script>
 <script src="js/schedule.js"></script>
 <script src="js/calendar.js"></script>
+<script src="js/settings-nav.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/app.js"></script>
 </body>

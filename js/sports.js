@@ -40,6 +40,8 @@
   }
   function url(lg) {
     if (lg.key === 'nfl') return API + lg.path + '/scoreboard';           // the current NFL week
+    // College football: ESPN's current-week scoreboard, so Thursday and Friday night games show too
+    if (lg.key === 'cfb') return API + lg.path + `/scoreboard?groups=${lg.group}&limit=400`;
     return API + lg.path + '/scoreboard?dates=' + dateFor(lg) + (lg.group ? `&groups=${lg.group}&limit=400` : '');
   }
 
@@ -62,7 +64,7 @@
     try {
       let j = await getJson(url(lg)), day = null;
       if (lg.key === 'nfl') day = { kind: 'week', week: (j.week || {}).number };
-      else if (lg.key === 'cfb') day = { kind: 'date', date: dateFor(lg) };
+      else if (lg.key === 'cfb') day = { kind: 'week', week: (j.week || {}).number };
       else {
         day = { kind: 'today' };
         // Basketball: nothing today? ESPN's default scoreboard jumps to the next day with games.
