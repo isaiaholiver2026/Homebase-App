@@ -77,15 +77,18 @@
         <div class="addpanel card" id="addPanel" hidden>
           <div class="addpanel-h">
             <div class="seg" role="tablist" aria-label="What to add" id="addSeg">
-              <button type="button" data-m="web" aria-pressed="true">Website</button>
+              <button type="button" data-m="popular" aria-pressed="true">Popular apps</button>
+              <button type="button" data-m="web" aria-pressed="false">Website</button>
               <button type="button" data-m="file" aria-pressed="false">Google Drive file</button>
             </div>
             <button class="ghost" type="button" id="cancelAdd">Cancel</button>
           </div>
-          <form class="addlink" id="addLinkForm" data-pane="web">
-            <input id="linkName" placeholder="Name (e.g. Canvas)" required>
+          <div class="presets" id="presets" data-pane="popular" role="group" aria-label="Popular apps"></div>
+          <form class="addlink" id="addLinkForm" data-pane="web" hidden>
+            <input id="linkName" placeholder="Name (e.g. My school)" required>
             <input id="linkUrl" placeholder="Web address (e.g. myschool.instructure.com)" required>
             <button class="btn" type="submit">Add</button>
+            <small class="addlink-note">The site's own icon is added for you. To use a different picture, click Edit, then the picture button on the app.</small>
           </form>
           <form class="addlink" id="fileForm" data-pane="file" hidden>
             <input id="fileName" placeholder="Name (e.g. Bio syllabus)" required>

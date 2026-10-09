@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Home Base",
   "version": "1.2.0",
-  "description": "A personal dashboard that opens as a pinned tab when Chrome starts.",
+  "description": "A personal dashboard that opens in the first tab when Chrome starts.",
   "permissions": [
     "tabs"
   ],

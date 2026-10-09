@@ -562,3 +562,20 @@ button.ttag:hover{color:var(--accent);border-color:var(--accent)}
 .cal-tog.off{background:transparent;color:var(--muted);border-style:dashed}
 .cal-tog.off span{text-decoration:line-through}
 .cal-tog.off .cal-dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--col)}
+
+/* Launchpad → + Add → Popular apps */
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px;max-height:260px;overflow:auto;padding:2px}
+.preset{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--ink);font-size:13px;text-align:left;transition:border-color .15s,background .15s,transform .12s}
+.preset:hover{border-color:var(--accent)}
+.preset:active{transform:scale(.98)}
+.preset.on{background:var(--surface-2);color:var(--muted);cursor:default}
+.preset.on:hover{border-color:var(--line)}
+.pre-ic{width:24px;height:24px;flex:none;border-radius:7px;background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);display:grid;place-items:center;overflow:hidden;padding:3px}
+.pre-ic.bleed{padding:0}
+.pre-ic img{width:100%;height:100%;object-fit:contain}
+.pre-ic.bleed img{object-fit:cover}
+.pre-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pre-st{flex:none;font-weight:700;color:var(--accent);font-size:14px}
+.preset.on .pre-st{color:var(--good)}
+.addlink-note{grid-column:1/-1;color:var(--muted);font-size:12px}
+.mark.img.fav{padding:8px}

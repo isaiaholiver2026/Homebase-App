@@ -4,6 +4,51 @@
   const L = () => $('#launch');
   let editing = false, drag = null, iconFor = null;
 
+  /* Icons: apps without a picture of their own use the website's icon (from Google's free icon service),
+     so you never have to find a logo yourself. You can still pick your own picture in Edit mode. */
+  const hostOf = u => { try { return new URL(u).hostname; } catch (e) { return ''; } };
+  const favUrl = u => { const h = hostOf(u); return h ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=128` : ''; };
+
+  /* Popular apps you can add with one click (Add → Popular apps). icon: a picture that ships with
+     Home Base, otherwise the site's own icon is used. */
+  const PRESETS = [
+    { name: 'Gmail', url: 'https://mail.google.com' },
+    { name: 'Outlook', url: 'https://outlook.office.com/mail/', icon: 'images/outlook.jpg' },
+    { name: 'Google Drive', url: 'https://drive.google.com', icon: 'images/google-drive.png' },
+    { name: 'Google Docs', url: 'https://docs.google.com' },
+    { name: 'Google Calendar', url: 'https://calendar.google.com' },
+    { name: 'YouTube', url: 'https://www.youtube.com', icon: 'images/youtube.png' },
+    { name: 'ChatGPT', url: 'https://chatgpt.com', icon: 'images/chatgpt.png' },
+    { name: 'Claude', url: 'https://claude.ai', icon: 'images/claude.png', iconMode: 'bleed', iconBg: '#D77655' },
+    { name: 'Gemini', url: 'https://gemini.google.com' },
+    { name: 'Canvas', url: 'https://canvas.instructure.com', icon: 'images/canvas.png' },
+    { name: 'Notion', url: 'https://www.notion.so' },
+    { name: 'GitHub', url: 'https://github.com' },
+    { name: 'LinkedIn', url: 'https://www.linkedin.com' },
+    { name: 'Spotify', url: 'https://open.spotify.com' },
+    { name: 'Netflix', url: 'https://www.netflix.com' },
+    { name: 'Amazon', url: 'https://www.amazon.com' },
+    { name: 'Reddit', url: 'https://www.reddit.com' },
+    { name: 'Instagram', url: 'https://www.instagram.com' },
+    { name: 'X', url: 'https://x.com' },
+    { name: 'ESPN', url: 'https://www.espn.com' },
+    { name: 'Yahoo Finance', url: 'https://finance.yahoo.com', icon: 'images/yahoo-finance.png' },
+    { name: 'Wikipedia', url: 'https://www.wikipedia.org' }
+  ];
+  const sameSite = (a, b) => hostOf(a).replace(/^www\./, '') === hostOf(b).replace(/^www\./, '');
+  const isAdded = p => HB.state.links.some(l => l.kind !== 'file' && sameSite(l.url, p.url));
+  const presetIcon = p => p.icon || favUrl(p.url);
+  function drawPresets() {
+    const box = $('#presets'); if (!box) return;
+    box.innerHTML = PRESETS.map((p, i) => {
+      const on = isAdded(p);
+      return `<button type="button" class="preset${on ? ' on' : ''}" data-preset="${i}" ${on ? 'aria-disabled="true"' : ''} title="${on ? 'Already on your Launchpad' : 'Add ' + esc(p.name)}">
+        <span class="pre-ic${p.iconMode === 'bleed' ? ' bleed' : ''}"${p.iconBg ? ` style="background:${esc(p.iconBg)}"` : ''}><img src="${esc(presetIcon(p))}" alt="" data-hide-broken></span>
+        <span class="pre-nm">${esc(p.name)}</span>
+        <span class="pre-st" aria-hidden="true">${on ? '✓' : '+'}</span></button>`;
+    }).join('');
+  }
+
   const hue = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
   const normUrl = u => { u = u.trim(); return /^https?:\/\//i.test(u) ? u : 'https://' + u; };
 
@@ -23,6 +68,8 @@
   function tileMark(l) {
     const color = l.color || `hsl(${hue(l.name)} 55% 45%)`;
     const letters = l.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const fav = !l.icon && l.kind !== 'file' && favUrl(l.url);
+    if (fav) return `<div class="mark img filled fav"><img src="${esc(fav)}" alt="" data-fav data-fallback="${esc(letters)}" data-fallback-color="${esc(color)}"></div>`;
     if (l.icon) {
       const cls = l.iconMode === 'bleed' ? ' bleed' : l.iconMode === 'filled' ? ' filled' : '';
       const bg = l.iconMode && l.iconMode !== 'bare' && l.iconBg ? ` style="background:${esc(l.iconBg)}"` : '';
@@ -46,6 +93,11 @@
         <button class="x" data-rm="${esc(l.id)}" aria-label="Remove ${esc(l.name)}">&times;</button></a>`).join('')
       + (HB.state.links.length ? '' : `<div class="empty">No apps yet. Click "+ Add" to add your first one.</div>`);
     el.querySelectorAll('img[data-fit]').forEach(img => { if (img.dataset.fit) img.addEventListener('load', () => fitIcon(img), { once: true }); });
+    // A site with no real icon gets Google's tiny globe: show the app's letters instead
+    el.querySelectorAll('img[data-fav]').forEach(img => img.addEventListener('load', () => {
+      if (img.naturalWidth && img.naturalWidth <= 16) img.dispatchEvent(new Event('error'));
+    }, { once: true }));
+    if (!$('#addPanel').hidden) drawPresets();
   }
   HB.renderLinks = render;
 
@@ -118,7 +170,7 @@
     if (editing && e.target.closest('.app:not(.add)')) { e.preventDefault(); return; }
   });
   // "+ Add" sits next to Edit in the Launchpad header, so it never ends up alone on its own row
-  $('#addApp').onclick = () => { const p = $('#addPanel'); if (!p.hidden) { p.hidden = true; return; } openAdd('web'); };
+  $('#addApp').onclick = () => { const p = $('#addPanel'); if (!p.hidden) { p.hidden = true; return; } openAdd('popular'); };
   $('#editLinks').onclick = () => {
     editing = !editing; $('#editLinks').textContent = editing ? 'Done' : 'Edit';
     $('#editHint').textContent = 'Drag apps to reorder them. Click the picture button, or drop an image on an app, to change its logo. Click × to remove an app.';
@@ -194,13 +246,23 @@
 
   /* Add panel: a website, or a link to a Google Drive file */
   function setAddMode(m) {
+    if (m === 'popular') drawPresets();
     $$('#addSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === m));
     $$('#addPanel [data-pane]').forEach(p => p.hidden = p.dataset.pane !== m);
-    const f = { web: '#linkName', file: '#fileUrl' }[m]; if (f) setTimeout(() => $(f).focus(), 30);
+    const f = { web: '#linkName', file: '#fileUrl', popular: '#presets .preset:not(.on)' }[m]; if (f) setTimeout(() => $(f).focus(), 30);
   }
   function openAdd(m) { $('#addPanel').hidden = false; setAddMode(m); }
   $$('#addSeg button').forEach(b => b.onclick = () => setAddMode(b.dataset.m));
   $('#cancelAdd').onclick = () => { $('#addPanel').hidden = true; };
+  // One click adds a popular app (the panel stays open so you can add several)
+  $('#presets').addEventListener('click', e => {
+    const b = e.target.closest('[data-preset]'); if (!b || b.classList.contains('on')) return;
+    const p = PRESETS[+b.dataset.preset];
+    const l = { id: uid(), name: p.name, url: p.url };
+    if (p.icon) Object.assign(l, { icon: p.icon, iconMode: p.iconMode || 'filled', iconBg: p.iconBg || '#FFFFFF' });
+    HB.state.links.push(l); HB.commit(); drawPresets();
+    HB.toast && HB.toast(`Added ${p.name} to your Launchpad`);
+  });
   $('#addLinkForm').addEventListener('submit', e => {
     e.preventDefault();
     const name = $('#linkName').value.trim(), url = $('#linkUrl').value.trim();
