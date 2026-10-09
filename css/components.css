@@ -579,3 +579,16 @@ button.ttag:hover{color:var(--accent);border-color:var(--accent)}
 .preset.on .pre-st{color:var(--good)}
 .addlink-note{grid-column:1/-1;color:var(--muted);font-size:12px}
 .mark.img.fav{padding:8px}
+
+/* Quote of the day (js/quote.js) */
+.qt-body{display:flex;flex-direction:column;gap:8px}
+.qt-text{margin:0;font-size:16px;line-height:1.5;font-weight:500;color:var(--ink);position:relative;padding-left:14px;border-left:3px solid var(--accent)}
+.qt-by{margin:0;padding-left:17px;font-size:12.5px;color:var(--muted)}
+.qt-by::before{content:"— "}
+.qt-none{margin:0;font-size:13px;color:var(--muted)}
+.qt-btns{display:flex;gap:2px}
+.qt-topics{display:flex;flex-wrap:wrap;gap:5px;padding-bottom:10px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+.qt-chip{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:500;transition:background .15s,color .15s,border-color .15s}
+.qt-chip:hover{border-color:var(--accent)}
+.qt-chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.qt-count{margin:0;font-size:11.5px;color:var(--muted)}
