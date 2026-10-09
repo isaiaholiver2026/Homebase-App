@@ -1,10 +1,15 @@
 /* Canvas: your upcoming assignments, read straight from your Canvas calendar feed.
    Set it up in the Canvas widget or Settings → Canvas, then choose where assignments show:
-   their own Canvas widget, mixed into Coming up, or both. Nothing here is sent anywhere;
-   the feed link and the assignments are kept in this browser. */
+   their own Canvas widget, mixed into Coming up, or both.
+   Canvas doesn't let ordinary websites read its feed, so outside the Chrome extension Home Base
+   asks its own small helper (a free Cloudflare Worker, see "Feed helper/worker.js") to fetch it.
+   The helper only fetches Canvas calendar feeds and doesn't keep anything. */
 (function () {
   const { $, $$, esc, localISO, daysUntil, parseD } = HB;
   const CACHE = 'home-base-canvas', EVERY = 30 * 60 * 1000;
+  // The feed helper's address (your Cloudflare Worker). Empty = no helper yet.
+  const HELPER = 'https://home-base-feeds.isaiah-oliver.workers.dev';
+  const useHelper = () => !HB.isExt && !!HELPER;   // the extension can read Canvas directly
   const cfg = () => { const s = HB.settings(); if (!s.canvas) s.canvas = { feedUrl: '', show: 'widget' }; return s.canvas; };
   const doneMap = () => HB.state.canvasDone || (HB.state.canvasDone = {});
   let cache = HB.lsGet(CACHE);            // { url, at, items, error, errAt }
@@ -67,6 +72,7 @@
   /* Loading */
   const ERRORS = {
     blocked: HB.isExt ? "Couldn't reach Canvas. Check your internet connection, then try again."
+      : HELPER ? "Couldn't reach Canvas. Check your internet connection, then try Refresh."
       : location.protocol === 'file:' ? "Chrome won't let Home Base read Canvas when it's opened as a file. Use the Home Base extension (the pinned tab, or the house icon in the toolbar), where Canvas works."
       : 'Canvas only loads in the Home Base extension on your computer. Sign in with the account button (top right) on both to see your assignments here.',
     badlink: "Canvas didn't accept that link. Copy it again from Canvas → Calendar → Calendar Feed.",
@@ -78,10 +84,10 @@
   async function refresh(manual) {
     const url = feed(); if (!url || loading) return;
     // Outside the extension, Canvas can't be read directly; assignments arrive through Sync instead
-    if (HB.canvasFromSync && HB.canvasFromSync()) { if (manual) HB.toast('Canvas updates from the Home Base extension on your computer'); return; }
+    if (!useHelper() && HB.canvasFromSync && HB.canvasFromSync()) { if (manual) HB.toast('Canvas updates from the Home Base extension on your computer'); return; }
     loading = true; drawAll();
     try {
-      const r = await HB.fetchWithTimeout(url, 20000);
+      const r = await HB.fetchWithTimeout(useHelper() ? `${HELPER}/?url=${encodeURIComponent(url)}` : url, 20000);
       if (!r.ok) throw Object.assign(new Error('http'), { status: r.status });
       const text = await r.text();
       if (!/BEGIN:VCALENDAR/.test(text)) throw Object.assign(new Error('notics'), { kind: 'notics' });
