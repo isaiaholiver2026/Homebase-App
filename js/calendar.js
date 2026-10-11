@@ -21,7 +21,7 @@
     });
     if (!off('canvas')) (HB.canvasAll ? HB.canvasAll() : []).forEach(x => {
       if (x.date !== iso) return;
-      out.push({ kind: 'canvas', title: x.title, sub: x.course, code: x.code, time: x.time, allDay: !x.time, at: x.ts, url: x.url, done: x.done, hue: HB.courseHue(x.course) });
+      out.push({ kind: 'canvas', uid: x.uid, title: x.title, sub: x.course, code: x.code, time: x.time, allDay: !x.time, at: x.ts, url: x.url, done: x.done, hue: HB.courseHue(x.course) });
     });
     // Schedules (classes, shifts…): weekly time blocks
     (HB.scheduleOn ? HB.scheduleOn(iso) : []).forEach(x => {
@@ -74,9 +74,11 @@
   function itemHtml(e) {
     const name = e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : `<span>${esc(e.title)}</span>`;
     const sub = [e.sub, KIND[e.kind]].filter(Boolean).join(' · ');
+    // Canvas assignments get a check button: mark done (or not done) without the Canvas widget
+    const chk = e.kind === 'canvas' && e.uid ? `<button type="button" class="cal-chk${e.done ? ' on' : ''}" data-calcv="${esc(e.uid)}" aria-pressed="${!!e.done}" aria-label="${e.done ? 'Mark not done' : 'Mark done'}: ${esc(e.title)}" title="${e.done ? 'Mark not done' : 'Mark done'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></button>` : '';
     return `<li class="cal-item k-${e.kind}${e.done ? ' done' : ''}"${style(e)}${e.code ? ` title="${esc(e.code)}"` : ''}>
       <span class="cal-time">${e.time ? esc(e.time) : 'All day'}</span>
-      <span class="cal-body">${name}<small>${esc(sub)}${e.done ? ' · Done' : ''}</small></span></li>`;
+      <span class="cal-body">${name}<small>${esc(sub)}${e.done ? ' · Done' : ''}</small></span>${chk}</li>`;
   }
   function title() {
     if (view() === 'month') return cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -142,6 +144,8 @@
       sec.innerHTML = `<div class="card-h"><h2>Calendar</h2></div><div class="cal-wrap" id="calBody"></div>`;
       sec.addEventListener('click', e => {
         const t = e.target;
+        const cv = t.closest('[data-calcv]');
+        if (cv) { e.preventDefault(); HB.canvasMarkDone && HB.canvasMarkDone(cv.dataset.calcv, cv.getAttribute('aria-pressed') !== 'true'); return; }
         const day = t.closest('[data-day]'), nav = t.closest('[data-calnav]'), vw = t.closest('[data-calview]');
         if (day) { selected = day.dataset.day; const d = parseD(selected); if (view() === 'month' && d.getMonth() !== cursor.getMonth()) cursor = new Date(d.getFullYear(), d.getMonth(), 1); draw(); }
         else if (nav) move(+nav.dataset.calnav);

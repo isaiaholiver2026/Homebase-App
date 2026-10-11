@@ -136,16 +136,27 @@
 
   /* ---------- Combining and applying ---------- */
   const localText = () => JSON.stringify(HB.state);
-  // Combine two versions that both changed since the last sync, one section at a time
-  function merge(baseText, localObj, remoteObj) {
-    let base = {}; try { base = JSON.parse(baseText) || {}; } catch (e) {}
-    const out = {}, keys = new Set([...Object.keys(remoteObj), ...Object.keys(localObj)]);
+  // Combine two versions that both changed since the last sync. Each section (tasks, notes…)
+  // is compared on its own, and inside Settings each setting is compared on its own too
+  // (layout, weather, sports, search…). So a device that only touched one setting can't
+  // send back its whole, older copy of Settings (that's how an old phone copy once
+  // overwrote the widget layout).
+  const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+  function mergeObj(base, local, remote, depth) {
+    const out = {}, keys = new Set([...Object.keys(remote || {}), ...Object.keys(local || {})]);
     keys.forEach(k => {
-      const changedHere = JSON.stringify(localObj[k]) !== JSON.stringify(base[k]);
-      out[k] = changedHere ? localObj[k] : (k in remoteObj ? remoteObj[k] : localObj[k]);
+      const b = base ? base[k] : undefined, l = local[k], r = remote[k];
+      if (JSON.stringify(l) === JSON.stringify(b)) { if (k in remote) out[k] = r; else if (l !== undefined) out[k] = l; return; }   // not changed here
+      if (depth < 1 && isObj(l) && isObj(r) && isObj(b)) { out[k] = mergeObj(b, l, r, depth + 1); return; }                  // look inside (Settings)
+      if (l !== undefined) out[k] = l;                                                                                       // changed here: keep
     });
     return out;
   }
+  function merge(baseText, localObj, remoteObj) {
+    let base = {}; try { base = JSON.parse(baseText) || {}; } catch (e) {}
+    return mergeObj(base, localObj, remoteObj, 0);
+  }
+  HB._syncMerge = merge;   // for testing
   // Hold incoming changes only while you're in the middle of typing something
   const typing = () => {
     const a = document.activeElement;

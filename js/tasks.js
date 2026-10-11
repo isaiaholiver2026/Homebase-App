@@ -219,9 +219,11 @@
     const ed = e.target.closest('[data-rpedit-btn]'); if (ed) { openRuleEditor(ed.dataset.rpeditBtn); return; }
     const b = e.target.closest('[data-unrep]'); if (!b) return;
     const r = (HB.state.recurring || []).find(x => x.id === b.dataset.unrep);
+    const ri = HB.state.recurring.indexOf(r), linked = HB.state.tasks.filter(t => t.rec === b.dataset.unrep);
     HB.state.recurring = HB.state.recurring.filter(x => x.id !== b.dataset.unrep);
-    HB.state.tasks.forEach(t => { if (t.rec === b.dataset.unrep) delete t.rec; });
-    HB.commit(); if (r) HB.toast(`"${r.text}" won't repeat anymore`);
+    linked.forEach(t => { delete t.rec; });
+    HB.commit();
+    if (r) HB.undoable(`Stopped repeating "${r.text}"`, () => { HB.state.recurring.splice(Math.max(0, ri), 0, r); linked.forEach(t => { t.rec = r.id; }); HB.commit(); });
   });
   $('#repeatsPanel').addEventListener('keydown', e => { if (e.key === 'Escape' && editingRule) { editingRule = null; renderRepeats(); } });
   $('#repeatsPanel').addEventListener('submit', e => {
@@ -291,7 +293,10 @@
       tg.closest('.task').classList.toggle('done', t.done);
       setTimeout(HB.commit, 380);   // let the check animation play before the list re-sorts
     }
-    if (dl) { HB.state.tasks = HB.state.tasks.filter(x => x.id !== dl.dataset.del); HB.commit(); }
+    if (dl) {
+      const i = HB.state.tasks.findIndex(x => x.id === dl.dataset.del);
+      if (i >= 0) { const [t] = HB.state.tasks.splice(i, 1); HB.commit(); HB.undoable(`Deleted "${t.text}"`, () => { HB.state.tasks.splice(Math.min(i, HB.state.tasks.length), 0, t); HB.commit(); }); }
+    }
     if (ed) startEdit(ed.dataset.teditBtn);
     const rb = e.target.closest('.te-rep [data-rep]');
     if (rb) {
@@ -343,7 +348,11 @@
       const b = document.querySelector(`#tasks [data-toggle="${li.dataset.id}"]`); b && b.focus();
     }
   });
-  $('#clearDone').onclick = () => { HB.state.tasks = HB.state.tasks.filter(x => !x.done); HB.commit(); };
+  $('#clearDone').onclick = () => {
+    const before = HB.state.tasks.slice(), n = before.filter(x => x.done).length;
+    HB.state.tasks = HB.state.tasks.filter(x => !x.done); HB.commit();
+    HB.undoable(`Cleared ${n} completed task${n === 1 ? '' : 's'}`, () => { const ids = new Set(HB.state.tasks.map(x => x.id)); HB.state.tasks = [...HB.state.tasks, ...before.filter(x => x.done && !ids.has(x.id))]; HB.commit(); });
+  };
 
   /* Drag the dotted handle to reorder unfinished tasks. Finished tasks stay at the bottom. */
   const openIds = () => HB.state.tasks.filter(x => !x.done).map(x => x.id);
@@ -465,7 +474,10 @@
   $('#deadlines').addEventListener('click', e => {
     const cvd = e.target.closest('[data-cvdone]'); if (cvd) { HB.canvasMarkDone(cvd.dataset.cvdone); return; }
     const del = e.target.closest('[data-dldel]'), ed = e.target.closest('[data-dledit]'), cancel = e.target.closest('[data-cancel]');
-    if (del) { HB.state.deadlines = HB.state.deadlines.filter(x => x.id !== del.dataset.dldel); HB.commit(); }
+    if (del) {
+      const i = HB.state.deadlines.findIndex(x => x.id === del.dataset.dldel);
+      if (i >= 0) { const [d] = HB.state.deadlines.splice(i, 1); HB.commit(); HB.undoable(`Deleted "${d.title}"`, () => { HB.state.deadlines.splice(Math.min(i, HB.state.deadlines.length), 0, d); HB.commit(); }); }
+    }
     if (ed) { editingDl = ed.dataset.dledit; renderDeadlines(true); const f = $('#deadlines form [name=title]'); f && f.focus(); }
     if (cancel) { editingDl = null; renderDeadlines(true); }
     // The notes button under an item shows or hides its notes (remembered for each item)

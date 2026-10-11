@@ -34,7 +34,13 @@
     Object.keys(HB.WIDGETS).forEach(id => { if (!known.has(id)) saved.push({ id, size: HB.WIDGETS[id].size || 's', hidden: true }); });
     return saved;
   }
-  const save = l => { HB.state.settings.layout = l; HB.saveQuietly(); };
+  // Keep entries for widgets this copy of Home Base doesn't know (e.g. an older version on another
+  // device), so saving here never erases them from your layout
+  const save = l => {
+    const ids = new Set(l.map(w => w.id));
+    const keep = (HB.state.settings.layout || []).filter(w => w && !ids.has(w.id) && !HB.WIDGETS[w.id]);
+    HB.state.settings.layout = l.concat(keep); HB.saveQuietly();
+  };
   const el = id => board.querySelector(`.widget[data-w="${id}"]`);
 
   // Widgets from HB.registerWidget() build their own card the first time they're needed

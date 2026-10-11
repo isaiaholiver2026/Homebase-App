@@ -705,3 +705,9 @@ details.adv > .set-row{border-top:0;padding-bottom:0}
 .customizing .w-gear{display:none}
 @media (hover:none){.w-gear{opacity:.7}}
 #engineNote:empty{display:none}
+/* Calendar: check off Canvas assignments */
+.cal-item{align-items:center}
+.cal-chk{flex:none;width:22px;height:22px;margin-left:auto;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);color:transparent;display:grid;place-items:center;padding:0;transition:background .15s,border-color .15s,color .15s}
+.cal-chk:hover{border-color:var(--good);color:var(--good)}
+.cal-chk.on{background:var(--good);border-color:var(--good);color:#fff}
+.cal-item.done .cal-body > a,.cal-item.done .cal-body > span{text-decoration:line-through;color:var(--muted)}

@@ -36,11 +36,26 @@ HB.toast = (msg, ms = 2600, action) => {
   t.textContent = msg; t.classList.add('on');
   if (action) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-act'; b.textContent = action.label;
-    b.onclick = () => { t.classList.remove('on'); action.fn(); };
+    const entry = { fn: action.fn, msg };
+    if (/undo/i.test(action.label)) { HB._undo.push(entry); if (HB._undo.length > 20) HB._undo.shift(); }
+    b.onclick = () => { t.classList.remove('on'); HB._undo = HB._undo.filter(x => x !== entry); action.fn(); };
     t.appendChild(b);
   }
   clearTimeout(HB._toastT); HB._toastT = setTimeout(() => t.classList.remove('on'), ms);
 };
+// Undo: deletes and similar actions show a toast with "Undo". Ctrl+Z (Cmd+Z on a Mac) undoes the
+// most recent one, then the one before it, while you're not typing in a box.
+HB._undo = [];
+HB.undoable = (msg, fn) => HB.toast(msg, 6000, { label: 'Undo', fn });
+document.addEventListener('keydown', e => {
+  if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return;
+  const a = document.activeElement;
+  if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;   // let text boxes undo typing
+  const last = HB._undo.pop(); if (!last) return;
+  e.preventDefault(); last.fn();
+  HB.toast('Undone: ' + last.msg.replace(/^(Deleted|Removed|Cleared|Marked)\s*/i, m => m.toLowerCase()));
+});
+
 // Images that fail to load (Chrome extensions don't allow onerror="…" in the markup):
 //   data-fallback="AB" + data-fallback-color → swap the logo for letters; data-hide-broken → hide it
 document.addEventListener('error', e => {

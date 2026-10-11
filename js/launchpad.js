@@ -166,7 +166,12 @@
   L().addEventListener('click', e => {
     const rm = e.target.closest('[data-rm]'), ic = e.target.closest('[data-icon]');
     if (ic) { e.preventDefault(); iconFor = ic.dataset.icon; $('#iconFile').value = ''; $('#iconFile').click(); return; }
-    if (rm) { e.preventDefault(); HB.state.links = HB.state.links.filter(l => l.id !== rm.dataset.rm); HB.commit(); return; }
+    if (rm) {
+      e.preventDefault();
+      const i = HB.state.links.findIndex(l => l.id === rm.dataset.rm);
+      if (i >= 0) { const [l] = HB.state.links.splice(i, 1); HB.commit(); HB.undoable(`Removed ${l.name}`, () => { HB.state.links.splice(Math.min(i, HB.state.links.length), 0, l); HB.commit(); }); }
+      return;
+    }
     if (editing && e.target.closest('.app:not(.add)')) { e.preventDefault(); return; }
   });
   // "+ Add" sits next to Edit in the Launchpad header, so it never ends up alone on its own row
