@@ -18,7 +18,7 @@
     if ($('#askCtx').checked) {
       p += `Today is ${new Date().toDateString()}.\n`;
       p += `My open tasks: ${HB.state.tasks.filter(x => !x.done).map(x => x.text).join('; ') || 'none'}\n`;
-      p += `My deadlines: ${HB.state.deadlines.map(d => `${d.title}${d.tag ? ' (' + d.tag + ')' : ''} due ${d.date}`).join('; ') || 'none'}\n`;
+      p += `Coming up for me: ${(HB.watched ? HB.watched() : []).map(i => `${i.ev.title}${i.ev.tag ? ' (' + i.ev.tag + ')' : ''} — ${HB.eventType(i.ev).label.toLowerCase()} ${HB.isDue(i.ev) ? 'due' : 'on'} ${i.occ}`).join('; ') || 'nothing'}\n`;
     }
     return (p ? p + '\n' : '') + q;
   }

@@ -715,8 +715,6 @@ details.adv > .set-row{border-top:0;padding-bottom:0}
 .cal{--c-event:hsl(174 62% 36%)}
 .cal .k-event{--col:var(--c-event)}
 .cal-evadd{margin-left:auto}
-.cal-item[data-evedit]{cursor:pointer;border-radius:8px}
-.cal-item[data-evedit]:hover .cal-body > span{color:var(--c-event)}
 .ev-form{display:flex;flex-direction:column;gap:8px;padding:12px;margin-bottom:12px;border:1px solid var(--line);border-left:4px solid var(--c-event);border-radius:12px;background:var(--surface-2)}
 .ev-h{display:flex;align-items:baseline;gap:8px}
 .ev-h b{font-size:14px}
@@ -746,3 +744,149 @@ details.adv > .set-row{border-top:0;padding-bottom:0}
 /* Month cells: "✓ 5 done" summary for finished items */
 .cal-done{font-size:10.5px;color:var(--muted);padding-left:4px}
 .cal-dot-done{background:transparent;border:1.5px solid var(--muted);width:7px;height:7px;box-sizing:border-box}
+/* Event edit button + repeating events */
+.cal-evbtn{flex:none;margin-left:auto;width:24px;height:24px;border-radius:50%;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;padding:0}
+.cal-evbtn:hover{color:var(--c-event);background:var(--surface-2)}
+.cal-wlist .cal-item:has(.cal-evbtn) .cal-time{padding-right:24px}
+.cal-wlist .cal-evbtn{position:absolute;top:0;right:0;width:20px;height:20px}
+.ev-rep{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ev-rep label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.ev-rep select.dl-in{padding:6px 8px}
+.ev-days{display:none;gap:4px}
+.ev-rep[data-evrep=week] .ev-days,.ev-rep[data-evrep=week2] .ev-days{display:inline-flex}
+.ev-rep[data-evrep=custom][data-evunit=week] .ev-days{display:inline-flex}
+.ev-custom{display:none;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.ev-rep[data-evrep=custom] .ev-custom{display:inline-flex}
+.ev-custom input{width:64px;padding:6px 8px}
+.ev-custom select{padding:6px 8px}
+.dl-form textarea.dl-in{resize:vertical;font:inherit}
+.ev-rep[data-evrep=none] .ev-until{display:none}
+.ev-day{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font-size:12px;font-weight:600;padding:0;display:grid;place-items:center}
+.ev-day[aria-pressed=true]{background:var(--c-event);border-color:var(--c-event);color:#fff}
+.ev-delset{display:flex;flex-wrap:wrap;gap:6px}
+@container (max-width:620px){
+  .cal-wlist .cal-item:has(.cal-evbtn) .cal-time{padding-right:0}
+  .cal-wlist .cal-evbtn{position:static;width:24px;height:24px}
+}
+.ev-btns{flex-wrap:wrap}
+/* Check + pencil on calendar items: pencil sits just left of the check */
+.cal-evbtn + .cal-chk{margin-left:0}
+.cal-wlist .cal-item:has(.cal-chk):has(.cal-evbtn) .cal-time{padding-right:46px}
+.cal-wlist .cal-item:has(.cal-chk) .cal-evbtn{right:22px}
+/* With a mouse, the check and pencil appear only when you point at the item (always shown on touch screens) */
+@media (hover:hover){
+  .cal-item .cal-chk,.cal-item .cal-evbtn{opacity:0;transition:opacity .12s}
+  .cal-item:hover .cal-chk,.cal-item:hover .cal-evbtn,.cal-item:focus-within .cal-chk,.cal-item:focus-within .cal-evbtn{opacity:1}
+}
+@container (max-width:620px){
+  .cal-wlist .cal-item:has(.cal-chk):has(.cal-evbtn) .cal-time{padding-right:0}
+}
+/* Notes on calendar events and deadlines (same look as Coming up) */
+.cal-item{flex-wrap:wrap}
+.cal-nt{display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-weight:500;font-size:11.5px;border:0;background:var(--accent-soft);border-radius:999px;padding:1px 8px 1px 6px;vertical-align:1px}
+.cal-nt:hover{filter:brightness(.97)}
+.cal-nt .chev{transition:transform .2s}
+.cal-nt[aria-expanded=true] .chev{transform:rotate(180deg)}
+.dl-notes.cal-notes{flex-basis:100%;margin:6px 0 2px 74px;font-size:13px}
+.cal-wlist .dl-notes.cal-notes{display:none}
+@container (max-width:620px){.dl-notes.cal-notes{margin-left:0}}
+
+/* ===== Events: add/edit window (js/events.js) and Coming up as a watch list ===== */
+.evm{--c-event:hsl(174 62% 36%);position:fixed;left:50%;top:50%;z-index:51;width:min(560px,calc(100vw - 32px));max-height:min(760px,calc(100dvh - 48px));display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.22);transform:translate(-50%,-47%) scale(.97);opacity:0;visibility:hidden;transition:opacity .22s,transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s .28s}
+.evm.on{opacity:1;visibility:visible;transform:translate(-50%,-50%);transition:opacity .22s,transform .28s cubic-bezier(.2,.8,.2,1)}
+.evm .g-h{align-items:center}
+.evm-b{overflow:auto;padding:16px 20px 20px;overscroll-behavior:contain}
+.evm .ev-form{border:0;padding:0;margin:0;background:transparent;gap:12px}
+.evm .ev-form .dl-in{padding:9px 11px;border-radius:10px;background:var(--surface-2)}
+.evm .ev-form .dl-in:focus{background:var(--surface);border-color:var(--accent)}
+.evm .ev-title{font-size:15px;font-weight:500}
+.ev-types{display:flex;flex-wrap:wrap;gap:6px}
+.ev-types button{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:500;transition:background .15s,color .15s,border-color .15s}
+.ev-types button:hover{border-color:var(--accent);color:var(--accent)}
+.ev-types button[aria-checked="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ev-form[data-type="deadline"] .ev-to{display:none}
+.ev-row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ev-watch{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);cursor:pointer}
+.ev-watch input{margin-top:3px;width:16px;height:16px;accent-color:var(--accent);flex:none}
+.ev-watch span{display:flex;flex-direction:column;gap:2px}
+.ev-watch b{font-size:13.5px;font-weight:600}
+.ev-watch small{font-size:12px;color:var(--muted)}
+.ev-watch:has(input:checked){border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:var(--accent-soft)}
+@media (max-width:680px){
+  .evm{top:auto;bottom:0;left:0;width:100%;max-height:92dvh;border-radius:18px 18px 0 0;transform:translateY(100%)}
+  .evm.on{transform:none}
+  .ev-row2{grid-template-columns:1fr}
+}
+/* Coming up rows */
+.ev-type{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;color:hsl(174 62% 30%);background:color-mix(in srgb,hsl(174 62% 36%) 14%,transparent);border-radius:5px;padding:0 5px;margin-right:6px;vertical-align:1px}
+.ev-type.t-exam{color:hsl(275 55% 45%);background:color-mix(in srgb,hsl(275 55% 50%) 14%,transparent)}
+.ev-type.t-trip{color:hsl(28 80% 40%);background:color-mix(in srgb,hsl(28 85% 50%) 15%,transparent)}
+.ev-type.t-appointment{color:hsl(205 70% 38%);background:color-mix(in srgb,hsl(205 70% 45%) 14%,transparent)}
+:root[data-theme="dark"] .ev-type,.is-dark .ev-type{filter:brightness(1.5)}
+.del.unwatch:hover{background:var(--surface-2);color:var(--ink)}
+.row .meta small span[title] svg{vertical-align:-1px}
+/* "Watch" picker */
+.dl-pick{display:flex;flex-direction:column;gap:8px;padding:10px;margin-bottom:8px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.dl-pick-list{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto;display:flex;flex-direction:column}
+.dl-pick-list li{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line)}
+.dl-pick-list li:last-child{border-bottom:0}
+.dp-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.dp-t b{font-size:13.5px;font-weight:500;overflow-wrap:anywhere}
+.dp-t small{font-size:12px;color:var(--muted)}
+.dl-pick-list .btn{padding:5px 12px;font-size:12.5px}
+.dp-none{color:var(--muted);font-size:12.5px}
+/* Calendar: eye button (in Coming up or not) */
+.cal-watch.on{color:var(--accent)}
+.cal-evbtn + .cal-evbtn{margin-left:0}
+.cal-wlist .cal-watch{display:none}
+.cal-list .cal-item .cal-watch.on{opacity:1}
+/* Coming up type labels: one color per type (set by --th in js/tasks.js) */
+.ev-type{color:hsl(var(--th,222) 60% 38%);background:color-mix(in srgb,hsl(var(--th,222) 65% 48%) 14%,transparent)}
+.ev-form[data-due="1"] .ev-to{display:none}
+.ev-types button{padding:4px 11px;font-size:12.5px}
+/* Calendar "Types" filter */
+.cal-types-wrap{position:relative;display:inline-flex}
+.cal-typesbtn{gap:4px;padding:3px 9px}
+.cal-typesbtn.filtered{border-color:var(--accent);color:var(--accent)}
+.cal-types{position:absolute;bottom:calc(100% + 6px);left:0;z-index:6;min-width:170px;max-height:260px;overflow:auto;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16)}
+.cal-type{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--ink);text-align:left;padding:6px 8px;border-radius:8px;font-size:13px}
+.cal-type:hover{background:var(--surface-2)}
+.ct-box{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--line);display:grid;place-items:center;color:#fff;flex:none}
+.cal-type[aria-checked="true"] .ct-box{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.cal-types-all{align-self:flex-start;margin-top:2px;color:var(--accent);font-weight:600}
+.cal-type .cal-dot{margin-right:-2px}
+.cal-types-h{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 8px 2px;border-top:1px solid var(--line);margin-top:4px}
+
+/* ===== Schedules: named colors (--sc) and one-day changes (js/schedule.js) ===== */
+.cal .k-sched{--col:var(--sc, hsl(var(--h,265) 58% 55%))}
+.sch-sw i{background:var(--sc, hsl(var(--h) 58% 55%))}
+.sd-item{border-left-color:var(--sc, hsl(var(--h) 58% 55%))}
+.sd-days button[aria-pressed="true"]{background:var(--sc, hsl(var(--h) 58% 50%));border-color:transparent;color:#fff}
+.sd-colors{flex-wrap:wrap;align-items:center;gap:6px}
+.sd-colors button{width:22px;height:22px;background:var(--sc);box-shadow:0 0 0 1px var(--line)}
+.sd-colors button[aria-checked="true"]{box-shadow:0 0 0 2px var(--surface-2),0 0 0 4px var(--sc);transform:scale(1.05)}
+.sd-custom{position:relative;width:22px;height:22px;border-radius:50%;cursor:pointer;background:conic-gradient(#e5484d,#f5a524,#30a46c,#0091ff,#8e4ec6,#e5484d);box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.sd-custom.on{background:var(--sc);box-shadow:0 0 0 2px var(--surface-2),0 0 0 4px var(--sc)}
+.sd-custom input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:0;padding:0}
+.sd-prev{margin-left:auto;display:inline-block;max-width:170px;font-size:12px;line-height:1.4;padding:2px 8px;border-radius:6px;border-left:3px solid var(--sc);background:color-mix(in srgb,var(--sc) 15%,transparent);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sd-prev b{font-weight:600;margin-right:4px;font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+.sd-blocks-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sd-one{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:400;color:var(--ink-2);cursor:pointer}
+.sd-one input{accent-color:var(--accent)}
+/* Cancelled / changed days on the Calendar */
+.cal-chip.cancelled{text-decoration:line-through;opacity:.55}
+.cal-item.cancelled .cal-body > span,.cal-item.cancelled .cal-body > a{text-decoration:line-through;color:var(--muted)}
+.cal-item.cancelled .cal-time{text-decoration:line-through}
+.cal-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;padding:0 4px;margin-right:5px;vertical-align:1px}
+.cal-tag.cancel{color:var(--bad);background:var(--bad-soft)}
+.cal-tag.changed{color:var(--warn);background:var(--warn-soft)}
+.cal-daynote{display:block;font-style:normal;font-size:12px;color:var(--ink-2);margin-top:1px}
+.cal-daynote::before{content:"✎ ";color:var(--muted)}
+/* The "this day only" window */
+.sday #sdaySub{margin:4px 0 0;font-size:12.5px;color:var(--muted)}
+.sday-hint{margin:0;font-size:12.5px;color:var(--muted)}
+.sday-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;background:var(--warn-soft);font-size:13px;color:var(--ink-2)}
+.sday-banner.cancel{background:var(--bad-soft)}
+.sday .ev-form{border-left:0}
+.sday .ev-title{border-left:4px solid var(--sc) !important}
+.sday-whole{align-self:flex-start;color:var(--accent);font-weight:600}

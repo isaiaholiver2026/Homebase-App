@@ -1,4 +1,4 @@
-/* Today (to-do list), Coming up (deadlines) and the one-line summary under the greeting. */
+/* Today (to-do list), Coming up (the events you're watching, see js/events.js) and the one-line summary under the greeting. */
 (function () {
   const { $, esc, uid, parseD, daysUntil, localISO } = HB;
 
@@ -412,7 +412,6 @@
     if (n <= 14) return [`In ${n} days`, ''];
     return [`In ${Math.round(n / 7)} weeks`, 'good'];
   }
-  let editingDl = null;
   const noteIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>';
   const CHECK = /^\s*[-*]\s*\[( |x|X)\]\s?(.*)$/, BULLET = /^\s*[-*•]\s+(.*)$/;
   function checklistCount(notes) {
@@ -420,95 +419,119 @@
     return items.length ? { done: items.filter(m => m[1] !== ' ').length, total: items.length } : null;
   }
   // Notes: plain lines, "- " bullets, and "- [ ]" checklist items you can tick right here
-  function notesHtml(x) {
+  function notesHtml(x, attr = 'data-ck') {
     let html = '', list = '';
     const flush = () => { if (list) { html += `<ul>${list}</ul>`; list = ''; } };
     (x.notes || '').split('\n').forEach((line, i) => {
       const c = CHECK.exec(line), b = !c && BULLET.exec(line);
-      if (c) list += `<li class="ck${c[1] !== ' ' ? ' done' : ''}"><label><input type="checkbox" data-ck="${x.id}:${i}"${c[1] !== ' ' ? ' checked' : ''}> <span>${esc(c[2])}</span></label></li>`;
+      if (c) list += `<li class="ck${c[1] !== ' ' ? ' done' : ''}"><label><input type="checkbox" ${attr}="${x.id}:${i}"${c[1] !== ' ' ? ' checked' : ''}> <span>${esc(c[2])}</span></label></li>`;
       else if (b) list += `<li>${esc(b[1])}</li>`;
       else { flush(); html += line.trim() ? `<p>${esc(line)}</p>` : '<p class="gap"></p>'; }
     });
     flush();
     return html;
   }
-  function renderDeadlines(force) {
-    // Don't wipe out an edit in progress when something else on the page updates
-    if (!force && editingDl && document.activeElement && document.activeElement.closest && document.activeElement.closest('.dl-edit')) return;
-    // Your own deadlines, plus Canvas assignments when Settings → Canvas says to show them here
-    const cv = HB.canvasDeadlines ? HB.canvasDeadlines() : [];
-    const d = [...HB.state.deadlines, ...cv].sort((a, b) => HB.dueAt(a) - HB.dueAt(b));
-    $('#deadlines').innerHTML = d.length ? d.map(x => {
-      if (x._cv) {
-        const [lab, cls] = dueLabel(daysUntil(x.date)), dt = parseD(x.date);
-        return `<div class="dl-item cv"><div class="row"><div class="date-tile"><i>${dt.toLocaleDateString(undefined, { month: 'short' })}</i><b>${dt.getDate()}</b></div>
-          <div class="meta"><div><a class="cv-link" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></div><small><span class="cv-tag">Canvas</span>${x.course ? esc(x.course) + ' · ' : ''}${dt.toLocaleDateString(undefined, { weekday: 'long' })}${x.time ? ' · ' + esc(x.time) : ''}</small></div>
-          <span class="pill ${cls}">${lab}</span>
-          <button class="del cvdone" data-cvdone="${esc(x.uid)}" aria-label="Mark ${esc(x.title)} done" title="Mark done"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4.5 4.5L19 7"/></svg></button></div></div>`;
-      }
-      if (x.id === editingDl) return `<form class="row dl-edit" data-edit="${x.id}">
-          <input class="dl-in" name="title" value="${esc(x.title)}" aria-label="What's due" required>
-          <input class="dl-in" name="tag" value="${esc(x.tag || '')}" placeholder="Class or tag (optional)" aria-label="Class or tag">
-          <input class="dl-in" name="date" type="date" value="${esc(x.date)}" aria-label="Due date" required>
-          <input class="dl-in" name="time" type="time" value="${esc(x.time || '')}" aria-label="Time (optional)" title="Time (optional)">
-          <textarea class="dl-in" name="notes" rows="4" placeholder="Notes: what you need to do. Start a line with - [ ] to make a checklist." aria-label="Notes">${esc(x.notes || '')}</textarea>
-          <div class="dl-edit-btns"><button class="btn sec" type="button" data-cancel>Cancel</button><button class="btn" type="submit">Save</button></div>
-        </form>`;
-      const [lab, cls] = dueLabel(daysUntil(x.date)), dt = parseD(x.date), cc = checklistCount(x.notes), open = !!(x.showNotes && x.notes);
-      const noteTag = x.notes ? ` · <button type="button" class="nt" data-notes="${x.id}" aria-expanded="${open}" title="${open ? 'Hide notes' : 'Show notes'}">${noteIcon}${cc ? `${cc.done}/${cc.total}` : 'Notes'}<svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>` : '';
-      return `<div class="dl-item${open ? ' open' : ''}"><div class="row" data-row="${x.id}"><div class="date-tile"><i>${dt.toLocaleDateString(undefined, { month: 'short' })}</i><b>${dt.getDate()}</b></div>
-        <div class="meta"><div>${esc(x.title)}</div><small>${x.tag ? esc(x.tag) + ' · ' : ''}${dt.toLocaleDateString(undefined, { weekday: 'long' })}${x.time ? ' · ' + esc(HB.fmtTime(x.time)) : ''}${noteTag}</small></div>
-        <span class="pill ${cls}">${lab}</span>
-        <button class="del edit" data-dledit="${x.id}" aria-label="Edit deadline" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
-        <button class="del" data-dldel="${x.id}" aria-label="Remove deadline">&times;</button></div>
-        ${open ? `<div class="dl-notes">${notesHtml(x)}</div>` : ''}</div>`;
-    }).join('') : `<div class="empty">No deadlines yet. Add assignments, exams, bills, or anything with a date.</div>`;
+  // The Calendar shows the same notes for its events and deadlines
+  HB.notesHtml = notesHtml; HB.checklistCount = checklistCount; HB.noteIcon = noteIcon;
+  /* Coming up: the events you've switched on with "Show in Coming up" (see js/events.js),
+     plus Canvas assignments when Settings → Canvas says to show them here. */
+  const eyeOff = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c5 0 9 5 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C4.3 8.1 2.7 10.4 2 12c1 2 5 7 10 7 1.8 0 3.4-.6 4.8-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  const checkBtn = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4.5 4.5L19 7"/></svg>';
+  const pen13 = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>';
+  // Things that just happen (not deadlines) never say "Overdue"
+  function soonLabel(n, due) {
+    if (due) return dueLabel(n);
+    if (n <= 0) return ['Today', 'warn'];
+    if (n === 1) return ['Tomorrow', 'warn'];
+    if (n <= 14) return [`In ${n} days`, ''];
+    if (n < 60) return [`In ${Math.round(n / 7)} weeks`, 'good'];
+    return [`In ${Math.round(n / 30.4)} months`, 'good'];
   }
-  $('#toggleDl').onclick = () => { const f = $('#dlForm'); f.hidden = !f.hidden; $('#toggleDl').textContent = f.hidden ? '+ Add' : 'Close'; if (!f.hidden) $('#dlTitle').focus(); };
-  $('#dlForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const title = $('#dlTitle').value.trim(), date = $('#dlDate').value; if (!title || !date) return;
-    HB.state.deadlines.push({ id: uid(), title, date, time: $('#dlTime').value || '', tag: $('#dlTag').value.trim(), notes: $('#dlNotes').value.replace(/\s+$/, '') });
-    $('#dlTitle').value = $('#dlTag').value = $('#dlNotes').value = $('#dlTime').value = ''; HB.commit();
-  });
+  const tile = iso => { const dt = parseD(iso); return `<div class="date-tile"><i>${dt.toLocaleDateString(undefined, { month: 'short' })}</i><b>${dt.getDate()}</b></div>`; };
+  function evRow({ ev: x, occ }) {
+    const due = HB.isDue(x), [lab, cls] = soonLabel(daysUntil(occ), due), dt = parseD(occ);
+    const notes = x.note || '', cc = checklistCount(notes), open = !!(x.showNotes && notes);
+    const noteTag = notes ? ` · <button type="button" class="nt" data-notes="${x.id}" aria-expanded="${open}" title="${open ? 'Hide notes' : 'Show notes'}">${noteIcon}${cc ? `${cc.done}/${cc.total}` : 'Notes'}<svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>` : '';
+    // A colored label for every type except plain "Event"
+    const t = HB.eventType(x), type = t.id === 'event' ? '' : `<span class="ev-type" style="--th:${t.hue == null ? 222 : t.hue}">${esc(t.label)}</span>`;
+    const when = dt.toLocaleDateString(undefined, { weekday: 'long' }) + (x.start ? ' · ' + HB.fmtTime(x.start) + (x.end ? '–' + HB.fmtTime(x.end) : '') : '');
+    const bits = [x.tag, x.where].filter(Boolean).map(esc).join(' · ');
+    return `<div class="dl-item${open ? ' open' : ''}${due ? '' : ' ev'}"><div class="row" data-row="${x.id}" data-occ="${occ}">${tile(occ)}
+        <div class="meta"><div>${esc(x.title)}</div><small>${type}${bits ? bits + ' · ' : ''}${esc(when)}${x.repeat ? ` · <span title="${esc(HB.eventRepText(x))}">${repeatIcon}</span>` : ''}${noteTag}</small></div>
+        <span class="pill ${cls}">${lab}</span>
+        ${due ? `<button class="del cvdone" data-evdone="${x.id}|${occ}" aria-label="Mark ${esc(x.title)} done" title="Mark done">${checkBtn}</button>` : ''}
+        <button class="del edit" data-evedit="${x.id}" data-occ="${occ}" aria-label="Edit ${esc(x.title)}" title="Edit">${pen13}</button>
+        <button class="del unwatch" data-unwatch="${x.id}" aria-label="Remove ${esc(x.title)} from Coming up" title="Remove from Coming up (stays on your calendar)">${eyeOff}</button></div>
+        ${open ? `<div class="dl-notes">${notesHtml({ id: x.id, notes })}</div>` : ''}</div>`;
+  }
+  function cvRow(x) {
+    const [lab, cls] = dueLabel(daysUntil(x.date)), dt = parseD(x.date);
+    return `<div class="dl-item cv"><div class="row">${tile(x.date)}
+      <div class="meta"><div><a class="cv-link" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></div><small><span class="cv-tag">Canvas</span>${x.course ? esc(x.course) + ' · ' : ''}${dt.toLocaleDateString(undefined, { weekday: 'long' })}${x.time ? ' · ' + esc(x.time) : ''}</small></div>
+      <span class="pill ${cls}">${lab}</span>
+      <button class="del cvdone" data-cvdone="${esc(x.uid)}" aria-label="Mark ${esc(x.title)} done" title="Mark done">${checkBtn}</button></div></div>`;
+  }
+  function renderDeadlines() {
+    const cv = HB.canvasDeadlines ? HB.canvasDeadlines() : [];
+    const items = HB.watched().map(w => ({ w, at: w.at })).concat(cv.map(c => ({ c, at: HB.dueAt(c) }))).sort((a, b) => a.at - b.at);
+    $('#deadlines').innerHTML = items.length ? items.map(i => i.c ? cvRow(i.c) : evRow(i.w)).join('')
+      : `<div class="empty">Nothing here yet. Use <b>+ Add</b> for a deadline, exam or event, or <b>Watch</b> to pick something from your calendar.</div>`;
+    if (picking) renderPick();
+  }
+
+  /* "Watch": pick events from your calendar to show here */
+  let picking = false;
+  function renderPick() {
+    const q = ($('#dlPickQ') && $('#dlPickQ').value || '').trim().toLowerCase();
+    const all = HB.unwatched(), list = all.filter(i => !q || (i.ev.title + ' ' + (i.ev.tag || '') + ' ' + HB.eventType(i.ev).label).toLowerCase().includes(q)).slice(0, 40);
+    $('#dlPickList').innerHTML = list.length ? list.map(({ ev: x, occ }) => {
+      const dt = parseD(occ), n = daysUntil(occ);
+      return `<li><span class="dp-t"><b>${esc(x.title)}</b><small>${esc(HB.eventType(x).label)} · ${dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: dt.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined })}${n > 1 ? ` · in ${n} days` : n === 1 ? ' · tomorrow' : n === 0 ? ' · today' : ''}</small></span><button type="button" class="btn sec" data-watch="${x.id}">Watch</button></li>`;
+    }).join('') : `<li class="dp-none">${all.length ? 'Nothing matches.' : 'Everything on your calendar is already here. Add new things with + Add, or with + Event on the Calendar.'}</li>`;
+  }
+  function setPicking(on) {
+    picking = on; $('#dlPick').hidden = !on; $('#watchDl').setAttribute('aria-expanded', String(on)); $('#watchDl').textContent = on ? 'Done' : 'Watch';
+    if (on) { $('#dlPickQ').value = ''; renderPick(); $('#dlPickQ').focus(); }
+  }
+  $('#watchDl').onclick = () => setPicking(!picking);
+  $('#dlPickQ').addEventListener('input', renderPick);
+  $('#dlPickQ').addEventListener('keydown', e => { if (e.key === 'Escape') setPicking(false); });
+  $('#dlPickList').addEventListener('click', e => { const b = e.target.closest('[data-watch]'); if (b) HB.eventWatch(b.dataset.watch, true); });
+
+  // + Add: a new event (pick Deadline, Exam… in the window) that shows here
+  $('#toggleDl').onclick = () => HB.openEventEditor({ type: 'event', date: '', watch: true });
+  const editFrom = el => { const x = HB.events().find(y => y.id === el.dataset.evedit); if (x) HB.openEventEditor(Object.assign({}, x, { occ: el.dataset.occ || '' })); };
   $('#deadlines').addEventListener('click', e => {
     const cvd = e.target.closest('[data-cvdone]'); if (cvd) { HB.canvasMarkDone(cvd.dataset.cvdone); return; }
-    const del = e.target.closest('[data-dldel]'), ed = e.target.closest('[data-dledit]'), cancel = e.target.closest('[data-cancel]');
-    if (del) {
-      const i = HB.state.deadlines.findIndex(x => x.id === del.dataset.dldel);
-      if (i >= 0) { const [d] = HB.state.deadlines.splice(i, 1); HB.commit(); HB.undoable(`Deleted "${d.title}"`, () => { HB.state.deadlines.splice(Math.min(i, HB.state.deadlines.length), 0, d); HB.commit(); }); }
-    }
-    if (ed) { editingDl = ed.dataset.dledit; renderDeadlines(true); const f = $('#deadlines form [name=title]'); f && f.focus(); }
-    if (cancel) { editingDl = null; renderDeadlines(true); }
+    const dd = e.target.closest('[data-evdone]'); if (dd) { const [id, occ] = dd.dataset.evdone.split('|'); HB.eventDone(id, occ, true); return; }
+    const ed = e.target.closest('[data-evedit]'); if (ed) { editFrom(ed); return; }
+    const uw = e.target.closest('[data-unwatch]'); if (uw) { HB.eventWatch(uw.dataset.unwatch, false); return; }
     // The notes button under an item shows or hides its notes (remembered for each item)
     const nb = e.target.closest('[data-notes]');
-    if (nb) { const x = HB.state.deadlines.find(d => d.id === nb.dataset.notes); if (x) { x.showNotes = !x.showNotes; HB.commit(); renderDeadlines(true); } }
+    if (nb) { const x = HB.events().find(d => d.id === nb.dataset.notes); if (x) { x.showNotes = !x.showNotes; HB.commit(); } }
   });
   // Tick checklist items right from the list
   $('#deadlines').addEventListener('change', e => {
     const c = e.target.closest('[data-ck]'); if (!c) return;
-    const [id, i] = c.dataset.ck.split(':'), x = HB.state.deadlines.find(d => d.id === id); if (!x) return;
-    const lines = x.notes.split('\n'); lines[+i] = lines[+i].replace(/\[( |x|X)\]/, c.checked ? '[x]' : '[ ]');
-    x.notes = lines.join('\n'); HB.commit(); renderDeadlines(true);
+    const [id, i] = c.dataset.ck.split(':'), x = HB.events().find(d => d.id === id); if (!x || !x.note) return;
+    const lines = x.note.split('\n'); if (lines[+i] == null) return;
+    lines[+i] = lines[+i].replace(/\[( |x|X)\]/, c.checked ? '[x]' : '[ ]');
+    x.note = lines.join('\n'); HB.commit();
   });
-  // Double-click a deadline to edit it too
-  $('#deadlines').addEventListener('dblclick', e => { if (e.target.closest('.dl-notes, [data-notes]')) return; const r = e.target.closest('.row:not(.dl-edit)'); const b = r && r.querySelector('[data-dledit]'); if (b) b.click(); });
-  $('#deadlines').addEventListener('submit', e => {
-    const f = e.target.closest('[data-edit]'); if (!f) return;
-    e.preventDefault();
-    const val = n => f.querySelector(`[name=${n}]`).value;
-    const x = HB.state.deadlines.find(d => d.id === f.dataset.edit), title = val('title').trim(), date = val('date');
-    if (!x || !title || !date) return;
-    x.title = title; x.tag = val('tag').trim(); x.date = date; x.time = val('time') || ''; x.notes = val('notes').replace(/\s+$/, ''); editingDl = null; HB.commit(); renderDeadlines(true);
+  // Double-click an item to edit it too
+  $('#deadlines').addEventListener('dblclick', e => {
+    if (e.target.closest('.dl-notes, [data-notes], button, a')) return;
+    const r = e.target.closest('.row'), b = r && r.querySelector('[data-evedit]'); if (b) editFrom(b);
   });
-  $('#deadlines').addEventListener('keydown', e => { if (e.key === 'Escape' && editingDl) { editingDl = null; renderDeadlines(true); } });
 
   /* Summary line */
   function renderSummary() {
     const left = HB.state.tasks.filter(t => !t.done).length;
     const cv = HB.canvasSoon ? HB.canvasSoon() : { week: 0, over: 0 };   // Canvas assignments count too
-    const week = HB.state.deadlines.filter(d => { const n = daysUntil(d.date); return n >= 0 && n <= 7; }).length + cv.week;
-    const over = HB.state.deadlines.filter(d => daysUntil(d.date) < 0).length + cv.over;
+    // Deadlines you're watching in Coming up
+    const w = HB.watched ? HB.watched().filter(i => HB.isDue(i.ev)) : [];
+    const week = w.filter(i => { const n = daysUntil(i.occ); return n >= 0 && n <= 7; }).length + cv.week;
+    const over = w.filter(i => daysUntil(i.occ) < 0).length + cv.over;
     const bits = [left ? `${left} task${left > 1 ? 's' : ''} left today` : (HB.state.tasks.length ? 'Every task is done' : 'A clear list today')];
     if (week) bits.push(`${week} deadline${week > 1 ? 's' : ''} this week`);
     if (over) bits.push(`${over} overdue`);

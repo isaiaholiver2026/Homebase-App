@@ -114,16 +114,12 @@
       </section>
     </div>
     <div class="widget" data-w="deadlines">
-      <section class="card" aria-label="Deadlines">
-        <div class="card-h"><h2>Coming up</h2><button class="ghost" id="toggleDl">+ Add</button></div>
-        <form class="dl-form" id="dlForm" hidden>
-          <div class="field"><input id="dlTitle" placeholder="What's due? (e.g. Bio lab report)" required></div>
-          <div class="field"><input id="dlTag" placeholder="Class or tag (optional)"></div>
-          <textarea class="dl-notes-in" id="dlNotes" rows="3" placeholder="Notes (optional): what you need to do. Start a line with - [ ] to make a checklist."></textarea>
-          <input id="dlDate" type="date" required aria-label="Due date" style="border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:8px 10px">
-          <input id="dlTime" type="time" aria-label="Time (optional)" title="Time (optional)" style="border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:8px 10px">
-          <button class="btn" type="submit" style="grid-column:1/-1">Add deadline</button>
-        </form>
+      <section class="card" aria-label="Coming up">
+        <div class="card-h"><h2>Coming up</h2><div class="card-h-r"><button class="ghost" id="watchDl" aria-expanded="false" aria-controls="dlPick" title="Pick events from your calendar to show here">Watch</button><button class="ghost" id="toggleDl" title="Add a deadline, exam or event">+ Add</button></div></div>
+        <div class="dl-pick" id="dlPick" hidden>
+          <input class="set-in" id="dlPickQ" placeholder="Find an event on your calendar…" autocomplete="off" aria-label="Find an event">
+          <ul class="dl-pick-list" id="dlPickList"></ul>
+        </div>
         <div class="list" id="deadlines"></div>
       </section>
     </div>
@@ -351,6 +347,7 @@
 <script src="js/defaults.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/events.js"></script>
 <script src="js/launchpad.js"></script>
 <script src="js/tasks.js"></script>
 <script src="js/weather.js"></script>

@@ -1,43 +1,52 @@
-/* Calendar: a Month or Week view of your Coming up deadlines, Canvas assignments,
-   schedules (js/schedule.js) and events. Repeating tasks stay in Today only.
-   Events are one-time things you show up to ("Treatment, 6 AM"). They live only on the
-   calendar (never in Today or Coming up): add with "+ Event", click one to edit or delete.
-   Saved in HB.state.events [{ id, title, date, start?, end?, where?, note? }]. Click a day to see everything on it.
-   Add it from Customize → Add widgets. Works best as a medium or large widget. */
+/* Calendar: a Month or Week view of everything with a date — your events (deadlines, exams,
+   appointments, trips… see js/events.js), Canvas assignments and schedules (js/schedule.js).
+   Repeating tasks stay in Today only. "+ Event" and the pencil on an item open the shared
+   add/edit window (HB.openEventEditor). The eye button on an item shows it in Coming up (or not).
+   Click a day to see everything on it. Works best as a medium or large widget. */
 (function () {
   const { $, esc, localISO, parseD } = HB;
   const cfg = () => { const s = HB.settings(); if (!s.calendar) s.calendar = { view: 'month' }; return s.calendar; };
   const view = () => (cfg().view === 'week' ? 'week' : 'month');
   // What's turned off with the toggles under the calendar (schedules use their own "hidden" flag,
   // the same one as the Show checkbox in Settings → Schedules)
-  const off = k => !!(cfg().hide || {})[k];
+  // What's hidden with the "Types" filter under the calendar: event types and/or 'canvas'
+  // (cfg().hideTypes = ['work', 'canvas', …]). Older versions had separate Events/Canvas toggles
+  // (cfg().hide); a hidden Canvas carries over, the rest is dropped.
+  function hiddenTypes() {
+    const c = cfg();
+    if (c.hide) { const h = new Set(c.hideTypes || []); if (c.hide.canvas) h.add('canvas'); c.hideTypes = [...h]; delete c.hide; }
+    return c.hideTypes || [];
+  }
+  const typeOff = x => hiddenTypes().includes(x.type || 'event');
+  let typesOpen = false;
   let sec = null, cursor = HB.today0(), selected = localISO();
   const DOW = [...Array(7)].map((_, i) => new Date(2026, 1, 1 + i).toLocaleDateString(undefined, { weekday: 'short' }));   // Sun…Sat
   const KIND = { deadline: 'Deadline', canvas: 'Canvas', sched: '', event: 'Event' };
-  const events = () => { if (!Array.isArray(HB.state.events)) HB.state.events = []; return HB.state.events; };
-  let evForm = null, hideDone = new Set();   // the event being added or edited: { id?, date, ... }
+  const events = () => HB.events();
+  let hideDone = new Set();   // week view: days whose done items are folded away
 
   /* Everything on one day. Items without a time ("all day") come first, then by time. */
   function eventsOn(iso) {
     const out = [], day0 = parseD(iso).getTime();
-    if (!off('deadline')) HB.state.deadlines.forEach(x => {
-      if (x.date !== iso) return;
-      out.push({ kind: 'deadline', title: x.title, sub: x.tag || '', time: x.time ? HB.fmtTime(x.time) : '', allDay: !x.time, at: HB.dueAt(x) });
-    });
-    if (!off('canvas')) (HB.canvasAll ? HB.canvasAll() : []).forEach(x => {
+    if (!hiddenTypes().includes('canvas')) (HB.canvasAll ? HB.canvasAll() : []).forEach(x => {
       if (x.date !== iso) return;
       out.push({ kind: 'canvas', uid: x.uid, title: x.title, sub: x.course, code: x.code, time: x.time, allDay: !x.time, at: x.ts, url: x.url, done: x.done, hue: HB.courseHue(x.course) });
     });
-    // Events (one-time appointments)
-    if (!off('event')) events().forEach(x => {
-      if (x.date !== iso) return;
-      const [h, m] = (x.start || '0:0').split(':').map(Number);
-      out.push({ kind: 'event', id: x.id, title: x.title, sub: [x.start && x.end ? 'Until ' + HB.fmtTime(x.end) : '', x.where, x.note].filter(Boolean).join(' · '), time: x.start ? HB.fmtTime(x.start) : '', allDay: !x.start, at: day0 + (h * 60 + m) * 60000 });
+    // Your events (deadlines show in blue, everything else in teal)
+    events().forEach(x => {
+      const kind = HB.isDue(x) ? 'deadline' : 'event';
+      if (typeOff(x) || !occursOn(x, iso)) return;
+      const [h, m] = (x.start || '0:0').split(':').map(Number), t = HB.eventType(x);
+      out.push({ kind, id: x.id, label: t.label, watch: !!x.watch, title: x.title,
+        sub: [x.start && x.end ? 'Until ' + HB.fmtTime(x.end) : '', x.tag, x.where, x.repeat ? repText(x) : ''].filter(Boolean).join(' · '),
+        notes: x.note || '', showNotes: !!x.showNotes, occ: iso, done: (x.done || []).includes(iso), time: x.start ? HB.fmtTime(x.start) : '', allDay: !x.start,
+        at: x.start ? day0 + (h * 60 + m) * 60000 : HB.isDue(x) ? day0 + 86399000 : day0 });
     });
     // Schedules (classes, shifts…): weekly time blocks
     (HB.scheduleOn ? HB.scheduleOn(iso) : []).forEach(x => {
       const [h, m] = x.start.split(':').map(Number);
-      out.push({ kind: 'sched', title: x.title, sub: [x.end ? 'Until ' + HB.fmtTime(x.end) : '', x.where, x.schedule].filter(Boolean).join(' · '), time: HB.fmtTime(x.start), allDay: false, at: day0 + (h * 60 + m) * 60000, hue: x.hue });
+      out.push({ kind: 'sched', ref: x.ref, title: x.title, done: x.done, cancelled: x.cancelled, changed: x.changed, note: x.note,
+        sub: [x.end ? 'Until ' + HB.fmtTime(x.end) : '', x.where, x.schedule].filter(Boolean).join(' · '), time: HB.fmtTime(x.start), allDay: false, at: day0 + (h * 60 + m) * 60000, color: x.color });
     });
     // (Repeating tasks stay in Today only; they don't show on the calendar.)
     // Done items go last
@@ -45,8 +54,8 @@
   }
 
   const short = t => (t || '').replace(/:00(?=\s?[AP]M)/i, '').replace(/\s?([AP])M/i, (_, x) => x.toLowerCase());   // "11:59 PM" → "11:59p", "3:00 PM" → "3p"
-  const style = e => (e.kind === 'canvas' || e.kind === 'sched' ? ` style="--h:${e.hue}"` : '');
-  const chip = e => `<span class="cal-chip k-${e.kind}${e.done ? ' done' : ''}"${style(e)}>${e.time ? `<b>${esc(short(e.time))}</b>` : ''}${esc(e.title)}</span>`;
+  const style = e => (e.kind === 'canvas' ? ` style="--h:${e.hue}"` : e.kind === 'sched' ? ` style="--sc:${e.color}"` : '');
+  const chip = e => `<span class="cal-chip k-${e.kind}${e.done ? ' done' : ''}${e.cancelled ? ' cancelled' : ''}"${style(e)}>${e.time ? `<b>${esc(short(e.time))}</b>` : ''}${esc(e.title)}</span>`;
   const dot = e => `<i class="cal-dot k-${e.kind}"${style(e)}></i>`;
   const longDate = iso => parseD(iso).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -85,13 +94,28 @@
   }
   function itemHtml(e) {
     const name = e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : `<span>${esc(e.title)}</span>`;
-    const sub = [e.sub, KIND[e.kind]].filter(Boolean).join(' · ');
-    // Canvas assignments get a check button: mark done (or not done) without the Canvas widget
-    const chk = e.kind === 'canvas' && e.uid ? `<button type="button" class="cal-chk${e.done ? ' on' : ''}" data-calcv="${esc(e.uid)}" aria-pressed="${!!e.done}" aria-label="${e.done ? 'Mark not done' : 'Mark done'}: ${esc(e.title)}" title="${e.done ? 'Mark not done' : 'Mark done'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></button>` : '';
-    const ev = e.kind === 'event' ? ` data-evedit="${esc(e.id)}" tabindex="0" role="button" title="Edit or delete this event"` : '';
-    return `<li class="cal-item k-${e.kind}${e.done ? ' done' : ''}"${style(e)}${e.code ? ` title="${esc(e.code)}"` : ''}${ev}>
+    const sub = [e.sub, e.label || KIND[e.kind]].filter(Boolean).join(' · ');
+    // Canvas assignments, events and deadlines get a check button: mark done (or not done)
+    const doneAttr = e.kind === 'sched' && e.ref && !e.cancelled ? `data-schdone="${esc(e.ref)}"` : e.kind === 'canvas' && e.uid ? `data-calcv="${esc(e.uid)}"` : (e.kind === 'event' || e.kind === 'deadline') && e.id ? `data-evdone="${esc(e.id)}|${esc(e.occ)}"` : '';
+    const chk = doneAttr ? `<button type="button" class="cal-chk${e.done ? ' on' : ''}" ${doneAttr} aria-pressed="${!!e.done}" aria-label="${e.done ? 'Mark not done' : 'Mark done'}: ${esc(e.title)}" title="${e.done ? 'Mark not done' : 'Mark done'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></button>` : '';
+    // Events and deadlines get a pencil button: the only way to edit them from the calendar
+    const mine = (e.kind === 'event' || e.kind === 'deadline') && e.id;
+    const ev = mine ? ` data-evedit="${esc(e.id)}" data-evocc="${esc(e.occ)}"` : '';
+    // Eye: show this in Coming up (filled when it's already there)
+    const eye = mine ? `<button type="button" class="cal-evbtn cal-watch${e.watch ? ' on' : ''}" data-evwatch="${esc(e.id)}" aria-pressed="${e.watch}" aria-label="${e.watch ? 'Remove from' : 'Show in'} Coming up: ${esc(e.title)}" title="${e.watch ? 'In Coming up. Click to remove it from there.' : 'Show in Coming up'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"${e.watch ? ' fill="currentColor"' : ''}/></svg></button>` : '';
+    const pen = e.kind === 'sched' && e.ref ? `<button type="button" class="cal-evbtn" data-schday="${esc(e.ref)}" aria-label="Change or cancel ${esc(e.title)} on this day" title="Change or cancel this day only"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>` : mine ? `<button type="button" class="cal-evbtn" data-evpen aria-label="Edit ${esc(e.title)}" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>` : '';
+    const tags = e.cancelled ? '<span class="cal-tag cancel">Cancelled</span>' : e.changed ? '<span class="cal-tag changed" title="Changed for this day only">Changed</span>' : '';
+    const dayNote = e.kind === 'sched' && e.note ? `<em class="cal-daynote">${esc(e.note)}</em>` : '';
+    return `<li class="cal-item k-${e.kind}${e.done ? ' done' : ''}${e.cancelled ? ' cancelled' : ''}"${style(e)}${e.code ? ` title="${esc(e.code)}"` : ''}${ev}>
       <span class="cal-time">${e.time ? esc(e.time) : 'All day'}</span>
-      <span class="cal-body">${name}<small>${esc(sub)}${e.done ? ' · Done' : ''}</small></span>${chk}</li>`;
+      <span class="cal-body">${name}<small>${tags}${esc(sub)}${e.done ? ' · Done' : ''}${noteBtn(e)}</small>${dayNote}</span>${eye}${pen}${chk}
+      ${e.notes && e.showNotes && HB.notesHtml ? `<div class="dl-notes cal-notes">${HB.notesHtml({ id: `${e.kind}:${e.id}`, notes: e.notes }, 'data-calck')}</div>` : ''}</li>`;
+  }
+  // "Notes" button under an event or deadline (shows its notes, like in Coming up)
+  function noteBtn(e) {
+    if (!e.notes || !e.id || !HB.noteIcon) return '';
+    const cc = HB.checklistCount(e.notes), open = !!e.showNotes;
+    return ` · <button type="button" class="nt cal-nt" data-calnotes="${e.kind}:${esc(e.id)}" aria-expanded="${open}" title="${open ? 'Hide notes' : 'Show notes'}">${HB.noteIcon}${cc ? `${cc.done}/${cc.total}` : 'Notes'}<svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>`;
   }
   function title() {
     if (view() === 'month') return cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -100,36 +124,30 @@
     return `${s.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString(undefined, sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`;
   }
 
-  // The add / edit event form (shown above the calendar)
-  function evFormHtml(x) {
-    return `<form class="ev-form" data-evform>
-      <div class="ev-h"><b>${x.id ? 'Edit event' : 'New event'}</b><small>Shows only on your calendar</small></div>
-      <input class="dl-in" name="title" value="${esc(x.title || '')}" placeholder="What is it? (e.g. Treatment)" aria-label="Event name" required>
-      <div class="ev-row">
-        <label>Date <input class="dl-in" name="date" type="date" value="${esc(x.date)}" required></label>
-        <label>From <input class="dl-in" name="start" type="time" value="${esc(x.start || '')}"></label>
-        <label>to <input class="dl-in" name="end" type="time" value="${esc(x.end || '')}"></label>
-      </div>
-      <input class="dl-in" name="where" value="${esc(x.where || '')}" placeholder="Where (optional)" aria-label="Where">
-      <input class="dl-in" name="note" value="${esc(x.note || '')}" placeholder="Note (optional)" aria-label="Note" maxlength="140">
-      <small class="ev-hint">Leave the time blank for an all-day event.</small>
-      <small class="ev-err" data-everr></small>
-      <div class="ev-btns">${x.id ? '<button type="button" class="btn sec ev-del" data-evdel>Delete</button>' : '<span></span>'}<span><button type="button" class="btn sec" data-evcancel>Cancel</button> <button type="submit" class="btn">${x.id ? 'Save' : 'Add event'}</button></span></div>
-    </form>`;
+  // Repeats are worked out in js/events.js
+  const occursOn = (x, iso) => HB.eventOccursOn(x, iso);
+  const repText = x => HB.eventRepText(x);
+
+  // An event from "event:<id>" / "deadline:<id>" (both live in the same list now)
+  function findItem(key) {
+    const id = key.split(':')[1];
+    return events().find(y => y.id === id);
   }
+  // Open the add/edit window; after saving, jump to the event's day so you can see it
   function openEvent(x) {
-    evForm = x; draw(true);
-    const i = sec.querySelector('.ev-form [name=title]'); if (i) { i.focus(); if (x.id) i.select(); }
-    sec.querySelector('.ev-form').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    HB.openEventEditor(x, { onSave: (saved, day) => { selected = day; const d = parseD(day); cursor = view() === 'month' ? new Date(d.getFullYear(), d.getMonth(), 1) : d; draw(); } });
+  }
+  function editFrom(el) {
+    const x = events().find(y => y.id === el.dataset.evedit);
+    if (x) openEvent(Object.assign({}, x, { occ: el.dataset.evocc || '' }));
   }
 
   function draw(force) {
     if (!sec || !sec.isConnected) return;
     const v = view(), evs = eventsOn(selected);
     const body = $('#calBody'), keep = document.activeElement && body.contains(document.activeElement) ? document.activeElement : null;
-    if (!force && keep && keep.closest('.ev-form')) return;   // don't redraw while you're filling in an event
     const keepDay = keep && keep.dataset.day;
-    body.innerHTML = (evForm ? evFormHtml(evForm) : '') + `
+    body.innerHTML = `
       <div class="cal-bar">
         <div class="cal-nav">
           <button type="button" class="cal-arrow" data-calnav="-1" aria-label="Previous ${v}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></button>
@@ -148,13 +166,30 @@
   /* Toggles under the calendar: choose what shows (e.g. turn off school stuff for the weekend) */
   function legendHtml() {
     const t = (attr, on, dot, label, title) => `<button type="button" class="cal-tog${on ? '' : ' off'}" ${attr} aria-pressed="${on}" title="${esc(title)}">${dot}<span>${esc(label)}</span></button>`;
-    const parts = [t('data-calshow="deadline"', !off('deadline'), '<i class="cal-dot k-deadline"></i>', 'Deadlines', 'Show or hide your Coming up deadlines')];
-    if (HB.canvasAll && HB.canvasAll().length) parts.push(t('data-calshow="canvas"', !off('canvas'), '<i class="cal-dot k-canvas" style="--h:350"></i>', 'Canvas', 'Show or hide Canvas assignments'));
-    if (events().length) parts.push(t('data-calshow="event"', !off('event'), '<i class="cal-dot k-event"></i>', 'Events', 'Show or hide your events'));
-    (HB.state.schedules || []).filter(x => (x.items || []).length).forEach(x => parts.push(
-      t(`data-calsched="${esc(x.id)}"`, !x.hidden, `<i class="cal-dot k-sched" style="--h:${(x.items[0] || {}).hue || 265}"></i>`, x.name, `Show or hide your "${x.name}" schedule`)));
+    const parts = [typesHtml()];
     return `<div class="cal-legend" role="group" aria-label="Show on calendar"><span class="cal-lbl">Show:</span>${parts.join('')}${HB.openSchedule ? '<button type="button" class="ghost cal-sched" data-schnew>+ Create schedule</button>' : ''}</div>`;
   }
+  // "Types" filter: one checklist with each event type you've used, plus Canvas
+  function typesHtml() {
+    const opts = HB.EVENT_TYPES.filter(ty => events().some(x => (x.type || 'event') === ty.id))
+      .map(ty => ({ id: ty.id, label: ty.label, dot: `<i class="cal-dot ${ty.due ? 'k-deadline' : 'k-event'}"></i>` }));
+    if (HB.canvasAll && HB.canvasAll().length) opts.push({ id: 'canvas', label: 'Canvas', dot: '<i class="cal-dot k-canvas" style="--h:350"></i>' });
+    // Schedules too (they use their own "hidden" flag, the same one as Settings → Schedules)
+    const scheds = (HB.state.schedules || []).filter(x => (x.items || []).length).map(x => ({ id: 'sched:' + x.id, label: x.name, sched: x,
+      dot: `<i class="cal-dot k-sched" style="--sc:${HB.schedColor(x.items[0] || {})}"></i>` }));
+    if (!opts.length && !scheds.length) return '';
+    const hid = hiddenTypes(), isOff = o => o.sched ? !!o.sched.hidden : hid.includes(o.id);
+    const all = opts.concat(scheds), hidden = all.filter(isOff).length, allOff = hidden === all.length;
+    const label = allOff ? 'Nothing (all hidden)' : hidden ? `All but ${hidden}` : 'Everything';
+    const btn = `<button type="button" class="cal-tog cal-typesbtn${hidden ? ' filtered' : ''}" data-caltypesbtn aria-expanded="${typesOpen}" aria-haspopup="true" title="Choose what shows on the calendar"><span>${label}</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>`;
+    if (!typesOpen) return `<span class="cal-types-wrap">${btn}</span>`;
+    const item = o => { const on = !isOff(o);
+      return `<button type="button" class="cal-type" data-caltype="${o.id}" role="menuitemcheckbox" aria-checked="${on}"><span class="ct-box">${on ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>' : ''}</span>${o.dot}${esc(o.label)}</button>`; };
+    const list = opts.map(item).join('') + (scheds.length ? `${opts.length ? '<span class="cal-types-h">Schedules</span>' : ''}${scheds.map(item).join('')}` : '');
+    return `<span class="cal-types-wrap">${btn}<div class="cal-types" role="menu" aria-label="What shows on the calendar">${list}${hidden ? '<button type="button" class="ghost cal-types-all" data-caltypesall>Show all</button>' : ''}</div></span>`;
+  }
+
+
 
   function move(step) {
     const today = HB.today0();
@@ -173,7 +208,7 @@
 
   HB.registerWidget({
     id: 'calendar', name: 'Calendar', size: 'm',
-    desc: 'A month or week view of your deadlines, Canvas assignments, events and schedules. Click a day to see what is on it.',
+    desc: 'A month or week view of your events and deadlines, Canvas assignments and schedules. Click a day to see what is on it.',
     icon: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7.5 13.5h2M11 13.5h2M14.5 13.5h2M7.5 16.5h2M11 16.5h2"/>',
     render(section) {
       sec = section;
@@ -181,17 +216,24 @@
       sec.innerHTML = `<div class="card-h"><h2>Calendar</h2><button type="button" class="ghost cal-evadd" data-evadd title="Add an event, like an appointment">+ Event</button></div><div class="cal-wrap" id="calBody"></div>`;
       sec.addEventListener('click', e => {
         const t = e.target;
-        // Events: add, edit, cancel, delete
-        if (t.closest('[data-evadd]')) { openEvent({ date: selected < localISO() ? localISO() : selected }); return; }
-        if (t.closest('[data-evcancel]')) { evForm = null; draw(true); return; }
-        if (t.closest('[data-evdel]')) {
-          const i = events().findIndex(x => x.id === evForm.id); evForm = null;
-          if (i >= 0) { const [x] = events().splice(i, 1); HB.commit(); HB.undoable ? HB.undoable(`Deleted "${x.title}"`, () => { events().splice(Math.min(i, events().length), 0, x); HB.commit(); }) : null; }
-          draw(true); return;
-        }
-        if (t.closest('.ev-form')) return;
+        // Events: add, edit, show in Coming up
+        if (t.closest('[data-evadd]')) { openEvent({ type: 'event', date: selected < localISO() ? localISO() : selected }); return; }
+        const ew = t.closest('[data-evwatch]');
+        if (ew) { HB.eventWatch(ew.dataset.evwatch, ew.getAttribute('aria-pressed') !== 'true'); return; }
         const ed = t.closest('[data-evedit]');
-        if (ed && !t.closest('a,button')) { const x = events().find(y => y.id === ed.dataset.evedit); if (x) openEvent(Object.assign({}, x)); return; }
+        if (ed && t.closest('[data-evpen]')) { editFrom(ed); return; }
+        const nb = t.closest('[data-calnotes]');
+        if (nb) { const x = findItem(nb.dataset.calnotes); if (x) { x.showNotes = !x.showNotes; HB.commit(); } return; }
+        const evd = t.closest('[data-evdone]');
+        if (evd) {
+          const [id, occ] = evd.dataset.evdone.split('|'), x = events().find(y => y.id === id); if (!x) return;
+          const before = (x.done || []).slice(), was = before.includes(occ);
+          x.done = was ? before.filter(d => d !== occ) : before.concat(occ);
+          if (!x.done.length) delete x.done;
+          HB.commit();
+          if (!was) HB.undoable(`Marked "${x.title}" done`, () => { if (before.length) x.done = before; else delete x.done; HB.commit(); });
+          return;
+        }
         const cv = t.closest('[data-calcv]');
         if (cv) { e.preventDefault(); HB.canvasMarkDone && HB.canvasMarkDone(cv.dataset.calcv, cv.getAttribute('aria-pressed') !== 'true'); return; }
         const day = t.closest('[data-day]'), nav = t.closest('[data-calnav]'), vw = t.closest('[data-calview]');
@@ -201,37 +243,23 @@
         else if (nav) move(+nav.dataset.calnav);
         else if (t.closest('[data-caltoday]')) { cursor = HB.today0(); selected = localISO(); draw(); }
         else if (vw) { cfg().view = vw.dataset.calview; HB.saveQuietly(); cursor = parseD(selected); draw(); }
-        else if (t.closest('[data-calshow]')) {
-          const k = t.closest('[data-calshow]').dataset.calshow, c = cfg();
-          c.hide = Object.assign({}, c.hide, { [k]: !off(k) }); HB.commit();
+        else if (t.closest('[data-caltypesbtn]')) { typesOpen = !typesOpen; draw(); }
+        else if (t.closest('[data-schday]')) HB.openScheduleDay(t.closest('[data-schday]').dataset.schday);
+        else if (t.closest('[data-schdone]')) { const b = t.closest('[data-schdone]'); HB.scheduleDayDone(b.dataset.schdone, b.getAttribute('aria-pressed') !== 'true'); }
+        else if (t.closest('[data-caltype]')) {
+          const id = t.closest('[data-caltype]').dataset.caltype, c = cfg(), h = new Set(hiddenTypes());
+          if (id.startsWith('sched:')) { const x = (HB.state.schedules || []).find(y => 'sched:' + y.id === id); if (x) { x.hidden = !x.hidden; HB.commit(); } }
+          else { h.has(id) ? h.delete(id) : h.add(id); c.hideTypes = [...h]; HB.commit(); }
         }
-        else if (t.closest('[data-calsched]')) {
-          const x = (HB.state.schedules || []).find(y => y.id === t.closest('[data-calsched]').dataset.calsched);
-          if (x) { x.hidden = !x.hidden; HB.commit(); }
-        }
+        else if (t.closest('[data-caltypesall]')) { cfg().hideTypes = []; (HB.state.schedules || []).forEach(x => { delete x.hidden; }); HB.commit(); }
       });
-      sec.addEventListener('submit', e => {
-        const f = e.target.closest('[data-evform]'); if (!f) return;
-        e.preventDefault();
-        const v = n => f.querySelector(`[name=${n}]`).value.trim();
-        const x = { title: v('title'), date: v('date'), start: v('start'), end: v('end'), where: v('where'), note: v('note') };
-        const err = f.querySelector('[data-everr]');
-        if (!x.title || !x.date) { err.textContent = 'Add a name and a date.'; return; }
-        if (x.end && !x.start) { err.textContent = 'Add a start time too, or clear the end time.'; return; }
-        if (x.start && x.end && x.end <= x.start) { err.textContent = 'The end time should be after the start time.'; return; }
-        Object.keys(x).forEach(k => { if (!x[k]) delete x[k]; });
-        if (evForm.id) { const i = events().findIndex(y => y.id === evForm.id); if (i >= 0) events()[i] = Object.assign({ id: evForm.id }, x); }
-        else events().push(Object.assign({ id: HB.uid() }, x));
-        // Jump to the event's day so you can see it
-        selected = x.date; const d = parseD(x.date); cursor = view() === 'month' ? new Date(d.getFullYear(), d.getMonth(), 1) : d;
-        evForm = null; document.activeElement && document.activeElement.blur(); HB.commit(); draw(true);
-        HB.toast(`Added "${x.title}" to your calendar`);
-      });
-      // Enter/Space on an event opens it; Esc closes the event form
-      sec.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && evForm) { evForm = null; draw(true); return; }
-        const ed = e.target.closest && e.target.closest('[data-evedit]');
-        if (ed && (e.key === 'Enter' || e.key === ' ') && e.target === ed) { e.preventDefault(); const x = events().find(y => y.id === ed.dataset.evedit); if (x) openEvent(Object.assign({}, x)); }
+      // Tick checklist items in an event's or deadline's notes
+      sec.addEventListener('change', e => {
+        const c = e.target.closest('[data-calck]'); if (!c) return;
+        const parts = c.dataset.calck.split(':'), i = +parts.pop(), x = findItem(parts.join(':')); if (!x) return;
+        const key = 'note', lines = (x[key] || '').split('\n');
+        if (lines[i] == null) return;
+        lines[i] = lines[i].replace(/\[( |x|X)\]/, c.checked ? '[x]' : '[ ]'); x[key] = lines.join('\n'); HB.commit();
       });
       // Arrow keys move between days
       sec.addEventListener('keydown', e => {
@@ -249,5 +277,7 @@
       draw();
     }
   });
+  document.addEventListener('click', e => { if (typesOpen && !e.target.closest('.cal-types-wrap')) { typesOpen = false; draw(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && typesOpen) { typesOpen = false; draw(); } });
   HB.onChange(draw);
 })();
