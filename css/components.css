@@ -711,3 +711,38 @@ details.adv > .set-row{border-top:0;padding-bottom:0}
 .cal-chk:hover{border-color:var(--good);color:var(--good)}
 .cal-chk.on{background:var(--good);border-color:var(--good);color:#fff}
 .cal-item.done .cal-body > a,.cal-item.done .cal-body > span{text-decoration:line-through;color:var(--muted)}
+/* Calendar events (one-time appointments) */
+.cal{--c-event:hsl(174 62% 36%)}
+.cal .k-event{--col:var(--c-event)}
+.cal-evadd{margin-left:auto}
+.cal-item[data-evedit]{cursor:pointer;border-radius:8px}
+.cal-item[data-evedit]:hover .cal-body > span{color:var(--c-event)}
+.ev-form{display:flex;flex-direction:column;gap:8px;padding:12px;margin-bottom:12px;border:1px solid var(--line);border-left:4px solid var(--c-event);border-radius:12px;background:var(--surface-2)}
+.ev-h{display:flex;align-items:baseline;gap:8px}
+.ev-h b{font-size:14px}
+.ev-h small,.ev-hint{font-size:12px;color:var(--muted)}
+.ev-form .dl-in{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 10px;outline:none;min-width:0}
+.ev-form .dl-in:focus{border-color:var(--c-event)}
+.ev-row{display:flex;flex-wrap:wrap;gap:8px}
+.ev-row label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.ev-err{font-size:12px;color:var(--bad)}
+.ev-err:empty{display:none}
+.ev-btns{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ev-del{color:var(--bad)}
+/* Week columns: keep items left-aligned; the check button sits beside the time instead of on its own row */
+.cal-wlist .cal-item{align-items:stretch;position:relative}
+.cal-wlist .cal-item:has(.cal-chk) .cal-time{padding-right:24px}
+.cal-wlist .cal-chk{position:absolute;top:2px;right:0;width:20px;height:20px}
+.cal-wdone{align-self:flex-start;border:0;background:transparent;padding:2px 4px;font-size:11px;color:var(--muted);border-radius:6px}
+.cal-wdone:hover{color:var(--ink);background:var(--surface-2)}
+@container (max-width:620px){
+  .cal-wlist .cal-item{align-items:center}
+  .cal-wlist .cal-item:has(.cal-chk) .cal-time{padding-right:0}
+  .cal-wlist .cal-chk{position:static;width:22px;height:22px}
+  .cal-wday{flex-wrap:wrap}
+  .cal-wlist{flex:1 1 0}
+  .cal-wdone{flex:none;width:calc(100% - 52px);margin-left:52px;text-align:left}
+}
+/* Month cells: "✓ 5 done" summary for finished items */
+.cal-done{font-size:10.5px;color:var(--muted);padding-left:4px}
+.cal-dot-done{background:transparent;border:1.5px solid var(--muted);width:7px;height:7px;box-sizing:border-box}

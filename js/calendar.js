@@ -1,5 +1,8 @@
 /* Calendar: a Month or Week view of your Coming up deadlines, Canvas assignments,
-   repeating tasks and schedules (js/schedule.js). Click a day to see everything on it.
+   schedules (js/schedule.js) and events. Repeating tasks stay in Today only.
+   Events are one-time things you show up to ("Treatment, 6 AM"). They live only on the
+   calendar (never in Today or Coming up): add with "+ Event", click one to edit or delete.
+   Saved in HB.state.events [{ id, title, date, start?, end?, where?, note? }]. Click a day to see everything on it.
    Add it from Customize → Add widgets. Works best as a medium or large widget. */
 (function () {
   const { $, esc, localISO, parseD } = HB;
@@ -10,7 +13,9 @@
   const off = k => !!(cfg().hide || {})[k];
   let sec = null, cursor = HB.today0(), selected = localISO();
   const DOW = [...Array(7)].map((_, i) => new Date(2026, 1, 1 + i).toLocaleDateString(undefined, { weekday: 'short' }));   // Sun…Sat
-  const KIND = { deadline: 'Deadline', canvas: 'Canvas', repeat: 'Repeating task', sched: '' };
+  const KIND = { deadline: 'Deadline', canvas: 'Canvas', sched: '', event: 'Event' };
+  const events = () => { if (!Array.isArray(HB.state.events)) HB.state.events = []; return HB.state.events; };
+  let evForm = null, hideDone = new Set();   // the event being added or edited: { id?, date, ... }
 
   /* Everything on one day. Items without a time ("all day") come first, then by time. */
   function eventsOn(iso) {
@@ -23,16 +28,20 @@
       if (x.date !== iso) return;
       out.push({ kind: 'canvas', uid: x.uid, title: x.title, sub: x.course, code: x.code, time: x.time, allDay: !x.time, at: x.ts, url: x.url, done: x.done, hue: HB.courseHue(x.course) });
     });
+    // Events (one-time appointments)
+    if (!off('event')) events().forEach(x => {
+      if (x.date !== iso) return;
+      const [h, m] = (x.start || '0:0').split(':').map(Number);
+      out.push({ kind: 'event', id: x.id, title: x.title, sub: [x.start && x.end ? 'Until ' + HB.fmtTime(x.end) : '', x.where, x.note].filter(Boolean).join(' · '), time: x.start ? HB.fmtTime(x.start) : '', allDay: !x.start, at: day0 + (h * 60 + m) * 60000 });
+    });
     // Schedules (classes, shifts…): weekly time blocks
     (HB.scheduleOn ? HB.scheduleOn(iso) : []).forEach(x => {
       const [h, m] = x.start.split(':').map(Number);
       out.push({ kind: 'sched', title: x.title, sub: [x.end ? 'Until ' + HB.fmtTime(x.end) : '', x.where, x.schedule].filter(Boolean).join(' · '), time: HB.fmtTime(x.start), allDay: false, at: day0 + (h * 60 + m) * 60000, hue: x.hue });
     });
-    // Repeating tasks: today and later (they have no time, so they show as all-day)
-    if (!off('repeat') && iso >= localISO() && HB.repeatOccursOn) (HB.state.recurring || []).forEach(r => {
-      if (HB.repeatOccursOn(r, parseD(iso))) out.push({ kind: 'repeat', title: r.text, sub: HB.repeatText ? 'Repeats ' + HB.repeatText(r) : '', time: '', allDay: true, at: day0 });
-    });
-    return out.sort((a, b) => (b.allDay - a.allDay) || a.at - b.at);
+    // (Repeating tasks stay in Today only; they don't show on the calendar.)
+    // Done items go last
+    return out.sort((a, b) => (!!a.done - !!b.done) || (b.allDay - a.allDay) || a.at - b.at);
   }
 
   const short = t => (t || '').replace(/:00(?=\s?[AP]M)/i, '').replace(/\s?([AP])M/i, (_, x) => x.toLowerCase());   // "11:59 PM" → "11:59p", "3:00 PM" → "3p"
@@ -42,12 +51,13 @@
   const longDate = iso => parseD(iso).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
   function dayCell(d, inMonth) {
-    const iso = localISO(d), evs = eventsOn(iso), today = iso === localISO(), sel = iso === selected;
-    const label = `${longDate(iso)}${evs.length ? `, ${evs.length} item${evs.length > 1 ? 's' : ''}` : ''}`;
+    // Done items don't take up room in the box: they're summed up as "✓ 5 done" (and listed in the day list below)
+    const iso = localISO(d), all = eventsOn(iso), evs = all.filter(e => !e.done), nDone = all.length - evs.length, today = iso === localISO(), sel = iso === selected;
+    const label = `${longDate(iso)}${evs.length ? `, ${evs.length} item${evs.length > 1 ? 's' : ''}` : ''}${nDone ? `, ${nDone} done` : ''}`;
     return `<button type="button" class="cal-day${inMonth ? '' : ' out'}${today ? ' today' : ''}${sel ? ' sel' : ''}" data-day="${iso}" aria-pressed="${sel}" aria-label="${esc(label)}">
       <span class="cal-num">${d.getDate()}</span>
-      <span class="cal-chips">${evs.slice(0, 3).map(chip).join('')}${evs.length > 3 ? `<span class="cal-more">+${evs.length - 3} more</span>` : ''}</span>
-      <span class="cal-dots">${evs.slice(0, 5).map(dot).join('')}</span>
+      <span class="cal-chips">${evs.slice(0, 3).map(chip).join('')}${evs.length > 3 ? `<span class="cal-more">+${evs.length - 3} more</span>` : ''}${nDone ? `<span class="cal-done">✓ ${nDone} done</span>` : ''}</span>
+      <span class="cal-dots">${evs.slice(0, 5).map(dot).join('')}${nDone ? `<i class="cal-dot cal-dot-done" title="${nDone} done"></i>` : ''}</span>
     </button>`;
   }
   function monthHtml() {
@@ -64,9 +74,11 @@
     for (let i = 0; i < 7; i++) {
       const d = new Date(s.getFullYear(), s.getMonth(), s.getDate() + i), iso = localISO(d), evs = eventsOn(iso);
       const today = iso === localISO(), sel = iso === selected;
+      const open = evs.filter(e => !e.done), done = evs.filter(e => e.done), showDone = !hideDone.has(iso);
+      const doneBtn = done.length ? `<button type="button" class="cal-wdone" data-calwdone="${iso}" aria-expanded="${showDone}">${showDone ? 'Hide' : '✓'} ${done.length} done</button>` : '';
       h += `<div class="cal-wday${today ? ' today' : ''}${sel ? ' sel' : ''}">
         <button type="button" class="cal-whead" data-day="${iso}" aria-pressed="${sel}" aria-label="${esc(longDate(iso))}"><span>${DOW[d.getDay()]}</span><b>${d.getDate()}</b></button>
-        ${evs.length ? `<ul class="cal-wlist">${evs.map(itemHtml).join('')}</ul>` : '<p class="cal-none">Nothing</p>'}
+        ${open.length || (showDone && done.length) ? `<ul class="cal-wlist">${open.concat(showDone ? done : []).map(itemHtml).join('')}</ul>` : (done.length ? '' : '<p class="cal-none">Nothing</p>')}${doneBtn}
       </div>`;
     }
     return h + '</div>';
@@ -76,7 +88,8 @@
     const sub = [e.sub, KIND[e.kind]].filter(Boolean).join(' · ');
     // Canvas assignments get a check button: mark done (or not done) without the Canvas widget
     const chk = e.kind === 'canvas' && e.uid ? `<button type="button" class="cal-chk${e.done ? ' on' : ''}" data-calcv="${esc(e.uid)}" aria-pressed="${!!e.done}" aria-label="${e.done ? 'Mark not done' : 'Mark done'}: ${esc(e.title)}" title="${e.done ? 'Mark not done' : 'Mark done'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></button>` : '';
-    return `<li class="cal-item k-${e.kind}${e.done ? ' done' : ''}"${style(e)}${e.code ? ` title="${esc(e.code)}"` : ''}>
+    const ev = e.kind === 'event' ? ` data-evedit="${esc(e.id)}" tabindex="0" role="button" title="Edit or delete this event"` : '';
+    return `<li class="cal-item k-${e.kind}${e.done ? ' done' : ''}"${style(e)}${e.code ? ` title="${esc(e.code)}"` : ''}${ev}>
       <span class="cal-time">${e.time ? esc(e.time) : 'All day'}</span>
       <span class="cal-body">${name}<small>${esc(sub)}${e.done ? ' · Done' : ''}</small></span>${chk}</li>`;
   }
@@ -87,12 +100,36 @@
     return `${s.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString(undefined, sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`;
   }
 
-  function draw() {
+  // The add / edit event form (shown above the calendar)
+  function evFormHtml(x) {
+    return `<form class="ev-form" data-evform>
+      <div class="ev-h"><b>${x.id ? 'Edit event' : 'New event'}</b><small>Shows only on your calendar</small></div>
+      <input class="dl-in" name="title" value="${esc(x.title || '')}" placeholder="What is it? (e.g. Treatment)" aria-label="Event name" required>
+      <div class="ev-row">
+        <label>Date <input class="dl-in" name="date" type="date" value="${esc(x.date)}" required></label>
+        <label>From <input class="dl-in" name="start" type="time" value="${esc(x.start || '')}"></label>
+        <label>to <input class="dl-in" name="end" type="time" value="${esc(x.end || '')}"></label>
+      </div>
+      <input class="dl-in" name="where" value="${esc(x.where || '')}" placeholder="Where (optional)" aria-label="Where">
+      <input class="dl-in" name="note" value="${esc(x.note || '')}" placeholder="Note (optional)" aria-label="Note" maxlength="140">
+      <small class="ev-hint">Leave the time blank for an all-day event.</small>
+      <small class="ev-err" data-everr></small>
+      <div class="ev-btns">${x.id ? '<button type="button" class="btn sec ev-del" data-evdel>Delete</button>' : '<span></span>'}<span><button type="button" class="btn sec" data-evcancel>Cancel</button> <button type="submit" class="btn">${x.id ? 'Save' : 'Add event'}</button></span></div>
+    </form>`;
+  }
+  function openEvent(x) {
+    evForm = x; draw(true);
+    const i = sec.querySelector('.ev-form [name=title]'); if (i) { i.focus(); if (x.id) i.select(); }
+    sec.querySelector('.ev-form').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function draw(force) {
     if (!sec || !sec.isConnected) return;
     const v = view(), evs = eventsOn(selected);
     const body = $('#calBody'), keep = document.activeElement && body.contains(document.activeElement) ? document.activeElement : null;
+    if (!force && keep && keep.closest('.ev-form')) return;   // don't redraw while you're filling in an event
     const keepDay = keep && keep.dataset.day;
-    body.innerHTML = `
+    body.innerHTML = (evForm ? evFormHtml(evForm) : '') + `
       <div class="cal-bar">
         <div class="cal-nav">
           <button type="button" class="cal-arrow" data-calnav="-1" aria-label="Previous ${v}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></button>
@@ -113,7 +150,7 @@
     const t = (attr, on, dot, label, title) => `<button type="button" class="cal-tog${on ? '' : ' off'}" ${attr} aria-pressed="${on}" title="${esc(title)}">${dot}<span>${esc(label)}</span></button>`;
     const parts = [t('data-calshow="deadline"', !off('deadline'), '<i class="cal-dot k-deadline"></i>', 'Deadlines', 'Show or hide your Coming up deadlines')];
     if (HB.canvasAll && HB.canvasAll().length) parts.push(t('data-calshow="canvas"', !off('canvas'), '<i class="cal-dot k-canvas" style="--h:350"></i>', 'Canvas', 'Show or hide Canvas assignments'));
-    if ((HB.state.recurring || []).length) parts.push(t('data-calshow="repeat"', !off('repeat'), '<i class="cal-dot k-repeat"></i>', 'Repeating tasks', 'Show or hide repeating tasks'));
+    if (events().length) parts.push(t('data-calshow="event"', !off('event'), '<i class="cal-dot k-event"></i>', 'Events', 'Show or hide your events'));
     (HB.state.schedules || []).filter(x => (x.items || []).length).forEach(x => parts.push(
       t(`data-calsched="${esc(x.id)}"`, !x.hidden, `<i class="cal-dot k-sched" style="--h:${(x.items[0] || {}).hue || 265}"></i>`, x.name, `Show or hide your "${x.name}" schedule`)));
     return `<div class="cal-legend" role="group" aria-label="Show on calendar"><span class="cal-lbl">Show:</span>${parts.join('')}${HB.openSchedule ? '<button type="button" class="ghost cal-sched" data-schnew>+ Create schedule</button>' : ''}</div>`;
@@ -136,17 +173,30 @@
 
   HB.registerWidget({
     id: 'calendar', name: 'Calendar', size: 'm',
-    desc: 'A month or week view of your deadlines, Canvas assignments, repeating tasks and schedules. Click a day to see what is on it.',
+    desc: 'A month or week view of your deadlines, Canvas assignments, events and schedules. Click a day to see what is on it.',
     icon: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7.5 13.5h2M11 13.5h2M14.5 13.5h2M7.5 16.5h2M11 16.5h2"/>',
     render(section) {
       sec = section;
       sec.classList.add('cal');
-      sec.innerHTML = `<div class="card-h"><h2>Calendar</h2></div><div class="cal-wrap" id="calBody"></div>`;
+      sec.innerHTML = `<div class="card-h"><h2>Calendar</h2><button type="button" class="ghost cal-evadd" data-evadd title="Add an event, like an appointment">+ Event</button></div><div class="cal-wrap" id="calBody"></div>`;
       sec.addEventListener('click', e => {
         const t = e.target;
+        // Events: add, edit, cancel, delete
+        if (t.closest('[data-evadd]')) { openEvent({ date: selected < localISO() ? localISO() : selected }); return; }
+        if (t.closest('[data-evcancel]')) { evForm = null; draw(true); return; }
+        if (t.closest('[data-evdel]')) {
+          const i = events().findIndex(x => x.id === evForm.id); evForm = null;
+          if (i >= 0) { const [x] = events().splice(i, 1); HB.commit(); HB.undoable ? HB.undoable(`Deleted "${x.title}"`, () => { events().splice(Math.min(i, events().length), 0, x); HB.commit(); }) : null; }
+          draw(true); return;
+        }
+        if (t.closest('.ev-form')) return;
+        const ed = t.closest('[data-evedit]');
+        if (ed && !t.closest('a,button')) { const x = events().find(y => y.id === ed.dataset.evedit); if (x) openEvent(Object.assign({}, x)); return; }
         const cv = t.closest('[data-calcv]');
         if (cv) { e.preventDefault(); HB.canvasMarkDone && HB.canvasMarkDone(cv.dataset.calcv, cv.getAttribute('aria-pressed') !== 'true'); return; }
         const day = t.closest('[data-day]'), nav = t.closest('[data-calnav]'), vw = t.closest('[data-calview]');
+        const wd = t.closest('[data-calwdone]');
+        if (wd) { const k = wd.dataset.calwdone; hideDone.has(k) ? hideDone.delete(k) : hideDone.add(k); draw(); return; }
         if (day) { selected = day.dataset.day; const d = parseD(selected); if (view() === 'month' && d.getMonth() !== cursor.getMonth()) cursor = new Date(d.getFullYear(), d.getMonth(), 1); draw(); }
         else if (nav) move(+nav.dataset.calnav);
         else if (t.closest('[data-caltoday]')) { cursor = HB.today0(); selected = localISO(); draw(); }
@@ -159,6 +209,29 @@
           const x = (HB.state.schedules || []).find(y => y.id === t.closest('[data-calsched]').dataset.calsched);
           if (x) { x.hidden = !x.hidden; HB.commit(); }
         }
+      });
+      sec.addEventListener('submit', e => {
+        const f = e.target.closest('[data-evform]'); if (!f) return;
+        e.preventDefault();
+        const v = n => f.querySelector(`[name=${n}]`).value.trim();
+        const x = { title: v('title'), date: v('date'), start: v('start'), end: v('end'), where: v('where'), note: v('note') };
+        const err = f.querySelector('[data-everr]');
+        if (!x.title || !x.date) { err.textContent = 'Add a name and a date.'; return; }
+        if (x.end && !x.start) { err.textContent = 'Add a start time too, or clear the end time.'; return; }
+        if (x.start && x.end && x.end <= x.start) { err.textContent = 'The end time should be after the start time.'; return; }
+        Object.keys(x).forEach(k => { if (!x[k]) delete x[k]; });
+        if (evForm.id) { const i = events().findIndex(y => y.id === evForm.id); if (i >= 0) events()[i] = Object.assign({ id: evForm.id }, x); }
+        else events().push(Object.assign({ id: HB.uid() }, x));
+        // Jump to the event's day so you can see it
+        selected = x.date; const d = parseD(x.date); cursor = view() === 'month' ? new Date(d.getFullYear(), d.getMonth(), 1) : d;
+        evForm = null; document.activeElement && document.activeElement.blur(); HB.commit(); draw(true);
+        HB.toast(`Added "${x.title}" to your calendar`);
+      });
+      // Enter/Space on an event opens it; Esc closes the event form
+      sec.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && evForm) { evForm = null; draw(true); return; }
+        const ed = e.target.closest && e.target.closest('[data-evedit]');
+        if (ed && (e.key === 'Enter' || e.key === ' ') && e.target === ed) { e.preventDefault(); const x = events().find(y => y.id === ed.dataset.evedit); if (x) openEvent(Object.assign({}, x)); }
       });
       // Arrow keys move between days
       sec.addEventListener('keydown', e => {
