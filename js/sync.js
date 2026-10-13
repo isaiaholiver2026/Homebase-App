@@ -6,8 +6,13 @@
    - Canvas assignments load in the Chrome extension and are shared to your other devices
      through users/<you>/data/canvas.
    - Light/dark mode, the weather, stock prices and scores stay per device (they refresh by themselves).
-   Changes made on two devices at once are combined section by section; if the same section
-   changed on both, the most recent edit on this device wins. */
+   Changes made on two devices at once are combined: section by section, and inside lists
+   (tasks, events, links…) item by item, so a task added on your phone is kept even if an
+   older open tab on your computer changed its own list. If the same item changed on both,
+   this device's edit wins.
+   Open tabs stay current: a tab checks for changes every 30 seconds (every minute while it's
+   in the background), right away when you come back to it, and other Home Base tabs in the
+   same browser update the moment one of them saves. */
 (function () {
   const { $, esc, lsGet, lsSet, lsDel } = HB;
 
@@ -27,7 +32,7 @@
     meta: 'home-base-sync-meta',        // { updateTime, base, dirty, at, canvasTime, canvasSent }
     presync: 'home-base-presync-backup' // this browser's data from just before it first synced
   };
-  const POLL = 30 * 1000, PUSH_DELAY = 1500;
+  const POLL = 30 * 1000, POLL_HIDDEN = 60 * 1000, PUSH_DELAY = 1500;
   const device = lsGet('home-base-device') || (() => { const d = HB.uid(); lsSet('home-base-device', d); return d; })();
 
   let session = lsGet(K.session);
@@ -142,12 +147,39 @@
   // send back its whole, older copy of Settings (that's how an old phone copy once
   // overwrote the widget layout).
   const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+  // Lists whose items all have an id (tasks, events, links, counters…) are combined item by item
+  const idOf = x => isObj(x) && (typeof x.id === 'string' || typeof x.id === 'number') ? String(x.id) : null;
+  const isIdList = v => Array.isArray(v) && v.every(x => idOf(x) !== null);
+  function mergeList(base, local, remote) {
+    const map = a => new Map(a.map(x => [idOf(x), x])), str = x => JSON.stringify(x);
+    const B = map(base), L = map(local), R = map(remote);
+    // Keep the order from whichever side rearranged the list (dragging tasks), else the online one
+    const orderOf = (a, other) => a.map(idOf).filter(id => other.has(id)).join('\n');
+    const moved = (side, S) => orderOf(side, B) !== orderOf(base, S);
+    const [main, other] = moved(local, L) && !moved(remote, R) ? [local, remote] : [remote, local];
+    const order = main.map(idOf);
+    other.forEach((x, i) => {   // items only the other side has go right after their neighbor there
+      const id = idOf(x); if (order.includes(id)) return;
+      let at = 0;
+      for (let j = i - 1; j >= 0; j--) { const k = order.indexOf(idOf(other[j])); if (k >= 0) { at = k + 1; break; } }
+      order.splice(at, 0, id);
+    });
+    const out = [];
+    order.forEach(id => {
+      const b = B.get(id), l = L.get(id), r = R.get(id);
+      if (l && r) out.push(b && str(l) === str(b) ? r : l);   // edited here wins; otherwise take the online copy
+      else if (l) { if (!b || str(l) !== str(b)) out.push(l); }   // new here (or deleted elsewhere but edited here)
+      else if (r) { if (!b || str(r) !== str(b)) out.push(r); }   // new elsewhere (or deleted here but edited elsewhere)
+    });
+    return out;
+  }
   function mergeObj(base, local, remote, depth) {
     const out = {}, keys = new Set([...Object.keys(remote || {}), ...Object.keys(local || {})]);
     keys.forEach(k => {
       const b = base ? base[k] : undefined, l = local[k], r = remote[k];
       if (JSON.stringify(l) === JSON.stringify(b)) { if (k in remote) out[k] = r; else if (l !== undefined) out[k] = l; return; }   // not changed here
       if (depth < 1 && isObj(l) && isObj(r) && isObj(b)) { out[k] = mergeObj(b, l, r, depth + 1); return; }                  // look inside (Settings)
+      if (depth < 1 && isIdList(l) && isIdList(r) && (b === undefined || isIdList(b))) { out[k] = mergeList(b || [], l, r); return; }   // item by item (tasks…)
       if (l !== undefined) out[k] = l;                                                                                       // changed here: keep
     });
     return out;
@@ -158,9 +190,12 @@
   }
   HB._syncMerge = merge;   // for testing
   // Hold incoming changes only while you're in the middle of typing something
+  let lastKey = 0;
+  document.addEventListener('keydown', () => { lastKey = Date.now(); }, true);
   const typing = () => {
     const a = document.activeElement;
-    if (!a || a.closest('#acctPop')) return false;
+    if (!a || a.closest('#acctPop') || document.hidden) return false;
+    if (Date.now() - lastKey > 20000) return false;   // a box left focused while you're away doesn't count
     if (a.tagName === 'TEXTAREA') return true;
     return a.tagName === 'INPUT' && !/checkbox|radio|button|submit/.test(a.type) && a.value.trim() !== '';
   };
@@ -360,11 +395,40 @@
   /* ---------- Staying up to date ---------- */
   function startPolling() {
     clearInterval(pollT);
-    pollT = setInterval(() => { if (session && !document.hidden) sync(meta.dirty ? 'push' : 'pull'); draw(); }, POLL);
+    let last = 0;
+    pollT = setInterval(() => {
+      // Keep checking in the background too (a bit less often), so a tab you left open stays current
+      if (session && Date.now() - last >= (document.hidden ? POLL_HIDDEN : POLL) - 1000) { last = Date.now(); sync(meta.dirty ? 'push' : 'pull'); }
+      draw();
+    }, POLL);
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && session) sync('pull'); });
   window.addEventListener('focus', () => { if (session) sync('pull'); });
   window.addEventListener('online', () => { if (session) sync('push'); });
+  window.addEventListener('pageshow', e => { if (e.persisted && session) sync('pull'); });
+
+  /* Other Home Base tabs in this browser: they share this browser's saved copy, so when one
+     of them saves, show the same thing here right away (and never save an older copy over it). */
+  let otherTabT = null;
+  function fromOtherTab() {
+    clearTimeout(otherTabT);
+    if (typing()) { otherTabT = setTimeout(fromOtherTab, 3000); return; }   // finish typing first
+    const saved = lsGet(DATA_KEY); if (!saved) return;
+    if (JSON.stringify(saved) === localText()) return;
+    applying = true;
+    try { HB.state = HB.withDefaults(saved); origCommit(); HB.fillSettings && HB.fillSettings(); }
+    finally { applying = false; }
+  }
+  window.addEventListener('storage', e => {
+    if (e.storageArea !== localStorage) return;
+    if (e.key === DATA_KEY && e.newValue) fromOtherTab();
+    else if (e.key === K.meta && e.newValue) { try { meta = Object.assign(meta, JSON.parse(e.newValue)); } catch (err) {} draw(); }
+    else if (e.key === K.session) {
+      const was = !!session; session = lsGet(K.session);
+      if (session && !was) startPolling(); else if (!session) clearInterval(pollT);
+      draw();
+    }
+  });
 
   HB.onChange(draw);
   if (session) { startPolling(); setTimeout(() => sync(meta.dirty ? 'push' : 'pull'), 300); }
