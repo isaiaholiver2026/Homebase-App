@@ -82,27 +82,27 @@
     const today = localISO();
     if (!occursOn(r, new Date()) || r.last === today) return false;
     r.last = today;
-    if (HB.state.tasks.some(t => t.rec === r.id && !t.done)) return false;
-    const t = { id: uid(), text: r.text, done: false, day: today, rec: r.id };
+    // Same id on every device, so a phone and a computer that both add today's copy end up with one
+    const id = `rep-${r.id}-${today}`;
+    if (HB.state.tasks.some(t => t.id === id || (t.rec === r.id && !t.done))) return false;
+    const t = { id, text: r.text, done: false, day: today, rec: r.id };
     if (top) HB.state.tasks.unshift(t); else addOpenAtEnd(t);
     return true;
   }
 
   /* A new day: finished tasks from earlier days are cleared, unfinished ones carry over
-     (tagged "from yesterday"), and today's repeating tasks are added. */
+     (tagged "from yesterday"), and today's repeating tasks are added. Returns true if anything changed.
+     Safe to run again: sync runs it after bringing in a copy that was saved on an earlier day. */
   function newDay() {
-    const st = HB.state, today = localISO();
-    if (st.lastDay === today) return false;
+    const st = HB.state, today = localISO(), n = st.tasks.length;
+    const fresh = st.lastDay !== today;
+    let moved = false;
     if (!Array.isArray(st.recurring)) st.recurring = [];
-    const first = !st.lastDay;
-    st.tasks.forEach(t => { if (!t.day) t.day = first ? today : st.lastDay; });
-    if (!first) {
-      st.tasks = st.tasks.filter(t => t.done ? t.day >= today : true);
-      st.tasks.forEach(t => { if (!t.done && t.day < today) { t.from = t.from || t.day; t.day = today; } });
-    }
-    st.recurring.forEach(r => addTodayIfDue(r, false));
-    st.lastDay = today;
-    return true;
+    if (fresh) { const first = !st.lastDay; st.tasks.forEach(t => { if (!t.day) t.day = first ? today : st.lastDay; }); }
+    st.tasks = st.tasks.filter(t => !(t.done && t.day && t.day < today));
+    st.tasks.forEach(t => { if (!t.done && t.day && t.day < today) { t.from = t.from || t.day; t.day = today; moved = true; } });
+    if (fresh) { st.recurring.forEach(r => addTodayIfDue(r, false)); st.lastDay = today; }
+    return fresh || moved || st.tasks.length !== n;
   }
   function addOpenAtEnd(t) { const i = HB.state.tasks.findIndex(x => x.done); if (i < 0) HB.state.tasks.push(t); else HB.state.tasks.splice(i, 0, t); }
   HB.newDay = newDay;

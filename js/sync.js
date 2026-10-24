@@ -150,8 +150,14 @@
   // Lists whose items all have an id (tasks, events, links, counters…) are combined item by item
   const idOf = x => isObj(x) && (typeof x.id === 'string' || typeof x.id === 'number') ? String(x.id) : null;
   const isIdList = v => Array.isArray(v) && v.every(x => idOf(x) !== null);
-  function mergeList(base, local, remote) {
+  // Fields every device rewrites by itself when a new day starts (open tasks move to today, repeats
+  // note the day they were added). They don't count as edits: otherwise a phone that wakes up on a
+  // new day would think it edited every task and bring back the ones you deleted elsewhere.
+  const AUTO = { tasks: ['day', 'from'], recurring: ['last'] };
+  function mergeList(base, local, remote, auto) {
     const map = a => new Map(a.map(x => [idOf(x), x])), str = x => JSON.stringify(x);
+    const strip = x => { const c = Object.assign({}, x); (auto || []).forEach(k => delete c[k]); return str(c); };
+    const same = (x, b) => str(x) === str(b) || (!!auto && strip(x) === strip(b));
     const B = map(base), L = map(local), R = map(remote);
     // Keep the order from whichever side rearranged the list (dragging tasks), else the online one
     const orderOf = (a, other) => a.map(idOf).filter(id => other.has(id)).join('\n');
@@ -167,9 +173,9 @@
     const out = [];
     order.forEach(id => {
       const b = B.get(id), l = L.get(id), r = R.get(id);
-      if (l && r) out.push(b && str(l) === str(b) ? r : l);   // edited here wins; otherwise take the online copy
-      else if (l) { if (!b || str(l) !== str(b)) out.push(l); }   // new here (or deleted elsewhere but edited here)
-      else if (r) { if (!b || str(r) !== str(b)) out.push(r); }   // new elsewhere (or deleted here but edited elsewhere)
+      if (l && r) out.push(b && same(l, b) ? r : l);   // edited here wins; otherwise take the online copy
+      else if (l) { if (!b || !same(l, b)) out.push(l); }   // new here (or deleted elsewhere but edited here)
+      else if (r) { if (!b || !same(r, b)) out.push(r); }   // new elsewhere (or deleted here but edited elsewhere)
     });
     return out;
   }
@@ -179,14 +185,23 @@
       const b = base ? base[k] : undefined, l = local[k], r = remote[k];
       if (JSON.stringify(l) === JSON.stringify(b)) { if (k in remote) out[k] = r; else if (l !== undefined) out[k] = l; return; }   // not changed here
       if (depth < 1 && isObj(l) && isObj(r) && isObj(b)) { out[k] = mergeObj(b, l, r, depth + 1); return; }                  // look inside (Settings)
-      if (depth < 1 && isIdList(l) && isIdList(r) && (b === undefined || isIdList(b))) { out[k] = mergeList(b || [], l, r); return; }   // item by item (tasks…)
+      if (depth < 1 && isIdList(l) && isIdList(r) && (b === undefined || isIdList(b))) { out[k] = mergeList(b || [], l, r, depth === 0 ? AUTO[k] : null); return; }   // item by item (tasks…)
       if (l !== undefined) out[k] = l;                                                                                       // changed here: keep
     });
     return out;
   }
   function merge(baseText, localObj, remoteObj) {
     let base = {}; try { base = JSON.parse(baseText) || {}; } catch (e) {}
-    return mergeObj(base, localObj, remoteObj, 0);
+    const out = mergeObj(base, localObj, remoteObj, 0);
+    // Today's copy of a repeating task that another device already added and then deleted stays
+    // deleted (both devices give that copy the same id, see addTodayIfDue in tasks.js)
+    const rules = new Map((remoteObj.recurring || []).map(r => [r.id, r]));
+    const has = (o, id) => Array.isArray(o.tasks) && o.tasks.some(x => x.id === id);
+    if (Array.isArray(out.tasks)) out.tasks = out.tasks.filter(t => {
+      const r = t.rec && rules.get(t.rec);
+      return !(r && !t.done && t.id === `rep-${r.id}-${r.last}` && !has(remoteObj, t.id) && !has(base, t.id));
+    });
+    return out;
   }
   HB._syncMerge = merge;   // for testing
   // Hold incoming changes only while you're in the middle of typing something
@@ -200,9 +215,10 @@
     return a.tagName === 'INPUT' && !/checkbox|radio|button|submit/.test(a.type) && a.value.trim() !== '';
   };
   function apply(obj) {
-    applying = true;
-    try { HB.state = HB.withDefaults(obj); origCommit(); HB.fillSettings && HB.fillSettings(); }
+    applying = true; let moved = false;
+    try { HB.state = HB.withDefaults(obj); moved = !!(HB.newDay && HB.newDay()); origCommit(); HB.fillSettings && HB.fillSettings(); }
     finally { applying = false; }
+    if (moved) changed();   // the copy that came in was from an earlier day: send it back moved forward to today
   }
 
   /* ---------- The sync itself ---------- */
