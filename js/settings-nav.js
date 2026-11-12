@@ -25,6 +25,8 @@
     { id: 'stocks', label: 'Watchlist', widget: 'watchlist', sec: 'set-stocks', sub: () => 'Google Sheet' },
     { id: 'timer', label: 'Focus timer', widget: 'focus', sec: 'set-timer',
       sub: () => { const t = st().timer || {}; return `${t.focus} / ${t.deep} / ${t.brk} min`; } },
+    { id: 'habits', label: 'Habits', widget: 'habits', sec: 'set-habits',
+      sub: () => { const n = (HB.state.habits || []).filter(h => !h.archived).length; return n ? `${n} habit${n === 1 ? '' : 's'}` : 'Week start, archived'; } },
     { group: 'School' },
     { id: 'canvas', label: 'Canvas', widget: 'canvas', school: true, sec: 'set-canvas',
       sub: () => st().canvas && st().canvas.feedUrl ? 'Connected' : 'Not connected' },
@@ -113,7 +115,7 @@
   new MutationObserver(() => { if (drawer.classList.contains('on')) { drawNav(); drawAccount(); } }).observe(drawer, { attributes: true, attributeFilter: ['class'] });
 
   /* A gear on each widget that has settings */
-  const GEAR = { weather: 'weather', scores: 'scores', watchlist: 'stocks', focus: 'timer', canvas: 'canvas', calendar: 'schedules' };
+  const GEAR = { weather: 'weather', scores: 'scores', watchlist: 'stocks', focus: 'timer', habits: 'habits', canvas: 'canvas', calendar: 'schedules' };
   const gearSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
   function addGears() {
     $$('#board > .widget').forEach(node => {

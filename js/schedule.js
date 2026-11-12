@@ -21,6 +21,7 @@
     const p = PALETTE.find(x => x[0] === key);
     return p ? `light-dark(${p[1]}, ${p[2]})` : /^#[0-9a-f]{6}$/i.test(key || '') ? key : null;
   };
+  HB.paletteColor = colorOf;   // also used by Habits
   // The CSS color for a time block (use as style="--sc:…")
   HB.schedColor = it => (it && it.color && colorOf(it.color)) || `hsl(${it && it.hue != null ? it.hue : HUES[0]} 58% 55%)`;
   const short = t => (t ? HB.fmtTime(t) : '').replace(/:00(?=\s?[AP]M)/i, '').replace(/\s?([AP])M/i, (_, x) => x.toLowerCase());

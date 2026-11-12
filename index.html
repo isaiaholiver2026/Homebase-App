@@ -290,6 +290,15 @@
           <div class="set-row"><label for="setBreak">Break (min)</label><input class="set-in" id="setBreak" type="number" min="1" max="60"></div>
         </div>
       </section>
+      <section class="set-sec" id="set-habits">
+        <h3>Habits</h3>
+        <div class="set-row"><span class="lbl">Week starts on</span>
+          <div class="seg" id="hbWeekStart" role="group" aria-label="Week starts on"><button type="button" data-ws="0">Sunday</button><button type="button" data-ws="1">Monday</button></div>
+        </div>
+        <div class="set-row"><span class="lbl">Archived habits</span>
+          <div id="hbArchived"></div>
+        </div>
+      </section>
       <section class="set-sec" id="set-search">
         <h3>Search</h3>
         <div class="set-row"><span class="lbl">Search buttons</span>
@@ -362,6 +371,7 @@
 <script src="js/quote.js"></script>
 <script src="js/counter.js"></script>
 <script src="js/schedule.js"></script>
+<script src="js/habits.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/settings-nav.js"></script>
 <script src="js/backup.js"></script>
