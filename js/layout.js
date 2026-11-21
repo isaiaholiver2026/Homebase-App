@@ -112,7 +112,7 @@
      when one grows (say you add a task) the widgets below it just slide down in the same
      column instead of jumping somewhere else. The board is cut into thin 4px rows. */
   const UNIT = 4, GAP = 16;
-  const packed = () => (HB.settings().boardMode || 'packed') === 'packed';
+  const packed = () => (HB.settings().boardMode || 'packed') !== 'rows';   // Fill gaps packs too
   // Matches the breakpoints in css/layout.css (reading the grid itself can over-count, since a
   // widget placed in column 3 makes the browser keep a 3rd column around)
   const colCount = () => matchMedia('(max-width:680px)').matches ? 1 : matchMedia('(max-width:1020px)').matches ? 2 : 3;
@@ -121,13 +121,38 @@
   const pin = cols => cols === 3 ? 'col' : 'col' + cols;
   const spanOf = (w, cols) => w.size === 'l' ? cols : w.size === 'm' ? Math.min(2, cols) : 1;
   let packQueued = false, working = null;   // working = the layout while a widget is being dragged
+  /* Fill gaps: placed like Packed, but where a column ends short (above a full-width widget, or at
+     the bottom of the board) the last widget in it grows down to line up with its neighbors. The
+     extra room is added as bottom padding, so the card's real content height can still be
+     measured (and a growing list still makes the card taller). */
+  const fillOf = s => +(s && s.dataset.fill || 0);
+  function setFill(n, px) {
+    const s = n.firstElementChild; if (!s) return;
+    const cur = fillOf(s); px = Math.max(0, Math.round(px)); if (cur === px) return;
+    const base = parseFloat(getComputedStyle(s).paddingBottom) - cur;
+    s.dataset.fill = px || ''; s.style.paddingBottom = px ? `${base + px}px` : '';
+  }
   function pack() {
     packQueued = false;
-    const on = packed();
+    const mode = HB.settings().boardMode || 'packed', on = mode !== 'rows', fill = mode === 'fill';
     board.classList.toggle('packed', on);
+    board.querySelectorAll('.widget').forEach(n => { if (!fill || n.hidden) setFill(n, 0); });
     if (!on) { board.querySelectorAll('.widget').forEach(n => { n.style.gridColumn = ''; n.style.gridRow = ''; }); return; }
-    const l = working || layout(), cols = colCount(), heights = new Array(cols).fill(0);
+    const l = working || layout(), cols = colCount(), heights = new Array(cols).fill(0), placed = [], last = new Array(cols).fill(null);
     let learned = false;
+    // Stretch the last widget in each short column down to the tallest one
+    function level() {
+      if (!fill || cols < 2) return;
+      const top = Math.max(...heights);
+      // Line up with the real bottom edge of the tallest column's last card (rows round up a little)
+      const edge = Math.max(...last.filter((p, c) => p && heights[c] === top).map(p => p.start * UNIT + p.h + p.fill));
+      new Set(last.filter(Boolean)).forEach(p => {
+        const cs = []; for (let c = p.col; c < p.col + p.span; c++) cs.push(c);
+        if (p.collapsed || cs.some(c => last[c] !== p) || cs.every(c => heights[c] === top)) return;
+        p.rows = top - p.start; p.fill = edge - (p.start * UNIT + p.h);
+        cs.forEach(c => { heights[c] = top; });
+      });
+    }
     l.forEach(w => {
       const n = el(w.id); if (!n) return;
       if (w.hidden) { n.style.gridColumn = ''; n.style.gridRow = ''; return; }
@@ -142,12 +167,19 @@
         col = best;
         w[pin(cols)] = col; if (!working) learned = true;
       }
+      if (span === cols) level();
       const start = Math.max(...heights.slice(col, col + span));
-      const inner = n.firstElementChild, h = inner ? inner.getBoundingClientRect().height : 0;
+      const inner = n.firstElementChild, h = inner ? inner.getBoundingClientRect().height - fillOf(inner) : 0;
       const rows = Math.max(1, Math.ceil((h + GAP) / UNIT));
-      n.style.gridColumn = `${col + 1} / span ${span}`;
-      n.style.gridRow = `${start + 1} / span ${rows}`;
-      for (let c = col; c < col + span; c++) heights[c] = start + rows;
+      const p = { n, col, span, start, rows, h, fill: 0, collapsed: !!w.collapsed };
+      placed.push(p);
+      for (let c = col; c < col + span; c++) { heights[c] = start + rows; last[c] = p; }
+    });
+    level();
+    placed.forEach(p => {
+      p.n.style.gridColumn = `${p.col + 1} / span ${p.span}`;
+      p.n.style.gridRow = `${p.start + 1} / span ${p.rows}`;
+      if (fill) setFill(p.n, p.fill);
     });
     if (learned) save(l);
   }

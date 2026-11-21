@@ -24,7 +24,7 @@ HB.DEFAULTS = {
     sheetCsvUrl: '',  // optional backup link (Settings → Stocks)
     sports: { favorites: [], leagues: ['nfl', 'cfb', 'nba', 'ncaab'] },  // favorite teams + sports with a tab, picked in Settings → Scores
     canvas: { feedUrl: '', show: 'widget' },   // Settings → Canvas: calendar feed link; show in 'widget', 'comingup' or 'both'
-    boardMode: 'packed',        // 'packed' (no gaps) or 'rows' (neat, equal-height rows)
+    boardMode: 'packed',        // 'packed' (no gaps), 'fill' (packed + short columns stretch to line up) or 'rows' (neat, equal-height rows)
     // Widget order, size (s = one column, m = two columns, l = full width) and whether each is hidden.
     // Someone new starts with the basics: search, Launchpad, Today, Coming up, Focus timer, Calendar and Scratchpad.
     layout: [
