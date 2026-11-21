@@ -16,7 +16,7 @@
     $$('#unitSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === st.unit));
     const theme = HB.lsGet(HB.THEME_KEY) || 'system';
     $$('#themeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === theme));
-    $$('#boardSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.b === (st.boardMode || 'packed')));
+    $$('#boardSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.b === (st.boardMode === 'rows' ? 'rows' : 'packed')));
     drawFavs();
   }
   HB.fillSettings = () => { if (open) fill(false); };
